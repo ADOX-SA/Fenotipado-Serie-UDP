@@ -98,12 +98,12 @@ String mensaje_html = "";
 // #include <WiFi.h>
 WiFiUDP UDP;
 
-IPAddress IPstatic(192, 168, 0, 217);
+IPAddress IPstatic(192, 168, 0, 210);
 IPAddress gateway(192, 168, 0, 4);
 IPAddress subnet(255, 255, 255, 0);
 
-unsigned int localPort = 4007;
-unsigned int remotePort = 4007;
+unsigned int localPort = 4000;
+unsigned int remotePort = 4000;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 
 boolean ConnectUDP();
@@ -129,7 +129,7 @@ void setup()
   Serial.print("\n Iniciando...");
 
   //---> Inicio fenotipado
-  Fenotipado.begin(9600);
+  Fenotipado.begin(115200);
 
   //---> Pantalla OLED
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
