@@ -14,7 +14,6 @@
 // BOTONES
 #define Button_1 D5
 #define Button_2 D6
-#define Button_3 D7
 
 //--- CONEXION CON PUERTO SERIE:
 #define Serie_TX D3 // CON RX DEL OTRO DISPOSITIVO
@@ -113,23 +112,42 @@ void Get_UDP(bool);
 
 int time1, time2;
 int flag_1;
+int flag_udp;
+int flag_permitir, flag_serie, flag_servidor, flag_boton_1, flag_boton_2, flag_pant_conect;
+int time_pantalla;
+
+String Lectura_Serie = "";
+String Lectura_Servidor = "";
 
 void Send_UDP(IPAddress, unsigned int, String);
+
+void Parpadeo(int, int);
+void Pant_Llego_Serv(String);
+void Pant_Llego_Serie(String);
+void Pantalla_Boton(int);
+void Pantallas();
+void Leer_Serie_Fenotipado();
+void Leer_Pulsadores();
 
 //------------------------------------------ SETUP
 void setup()
 {
+
+  pinMode(D0, OUTPUT);
+  digitalWrite(D0, HIGH);
+
   //---> Configuro los botones:
   pinMode(Button_1, INPUT_PULLUP);
   pinMode(Button_2, INPUT_PULLUP);
-  pinMode(Button_3, INPUT_PULLUP);
 
   //---> Iniciamos SERIE:
   Serial.begin(9600);
   Serial.print("\n Iniciando...");
 
+  Parpadeo(40, 10);
+
   //---> Inicio fenotipado
-  Fenotipado.begin(115200);
+  Fenotipado.begin(9600);
 
   //---> Pantalla OLED
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -151,8 +169,14 @@ void setup()
 
   ConnectUDP();
 
-  time1 = millis();
   flag_1 = 0;
+  flag_udp = 0;
+  flag_boton_1 = 0;
+  flag_boton_2 = 0;
+  flag_serie = 0;
+  flag_servidor = 0;
+  flag_pant_conect = 0;
+  flag_permitir = 1;
 }
 
 //----------------------------- LOOP
@@ -161,34 +185,18 @@ void loop()
 
   Servidor.handleClient(); /* Recibe las peticiones */
 
-  if (digitalRead(Button_1) == LOW)
-  {
-    //IPAddress IPdestino(192, 168, 0, 109);
-    //unsigned int destinationPort = 2000;
-    IPAddress IPdestino=UDP.remoteIP();
-    unsigned int destinationPort =UDP.remotePort();
-    String msg = "<OK>";
-    Send_UDP(IPdestino, destinationPort, msg);
+  //--------------------------------LEER BOTONES:
+  Leer_Pulsadores();
 
-    while (digitalRead(Button_1) == LOW)
-      delay(1);
-  }
-  
-  //---> RECIBO UDP:
+  //--------------------------------RECIBO UDP:
   Get_UDP(true);
 
+  //--------------------------------RECIBO SERIE:
+  Leer_Serie_Fenotipado();
 
-  if (Fenotipado.available() > 0)
-  {
-    Serial.print("\nLlegaron datos desde Fenotipado");
-    //--- Llego un dato serie, y lo mando por UDP:
-    String Lectura_Serie = Fenotipado.readString();
-    //IPAddress IPdestino(192, 168, 0, 109);
-    //unsigned int destinationPort = 2000;
-    IPAddress IPdestino=UDP.remoteIP();
-    unsigned int destinationPort =UDP.remotePort();
-    Send_UDP(IPdestino, destinationPort, Lectura_Serie);
-  }
+  //---------------------- Mostrar pantallas
+  Pantallas();
+
 }
 
 void Leer_EEPROM()
@@ -693,20 +701,21 @@ void Get_UDP(bool sendACK = true)
     Serial.print(" desde la IP: ");
     Serial.print(UDP.remoteIP());
     Serial.print(", puerto: ");
-    Serial.println(UDP.remotePort());
+    Serial.print(UDP.remotePort());
     Serial.print(". Mensaje: ");
     Serial.write((uint8_t *)packetBuffer, (size_t)packetSize);
-    Serial.println();
-    //ProcessPacket(String(packetBuffer));
 
-    //// send a reply, to the IP address and port that sent us the packet we received
-    //if (sendACK)
-    //  SendUDP_ACK();
-  
-    Serial.print("\nEnviando lo recibido a Fenotipado");
+    Lectura_Servidor = "";
+    for (int h = 0; h < packetSize; h++)
+    {
+      Lectura_Servidor += packetBuffer[h];
+    }
+
+    flag_servidor = 1;
+
+    Serial.print("\nEnviando lo recibido a Fenotipado: " + Lectura_Servidor);
     Fenotipado.write((uint8_t *)packetBuffer, (size_t)packetSize);
   }
-  
 }
 
 void Send_UDP(IPAddress ip_f, unsigned int port_f, String str_f)
@@ -721,4 +730,267 @@ void Send_UDP(IPAddress ip_f, unsigned int port_f, String str_f)
   UDP.beginPacket(ip_f, port_f);
   UDP.write(str_f.c_str()); //.c_str() para convertic a const char*
   UDP.endPacket();
+
+  // Parpadeo(50, 2);
+}
+
+void Pant_Llego_Serv(String str)
+{
+
+  display.clearDisplay();
+  display.display();
+
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(2);
+
+  String aux = "SERVIDOR";
+  int tam = aux.length();
+  int indice_x = 64 - (12 * (int(tam / 2)));
+  display.setCursor(indice_x, 0);
+  display.print(aux);
+
+  display.setTextSize(1);
+  aux = "envia:";
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  display.setCursor(indice_x, 20);
+  display.print(aux);
+
+  aux = str;
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  if (indice_x < 0)
+    indice_x = 0;
+  display.setCursor(indice_x, 35);
+  display.print(aux);
+
+  flag_udp = 1;
+  time1 = millis();
+
+  display.display();
+}
+
+void Pantalla_Enviar()
+{
+
+  display.clearDisplay();
+  display.display();
+
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(2);
+
+  String aux = "SERIE";
+  int tam = aux.length();
+  int indice_x = 64 - (6 * (int(tam / 2)));
+  display.setCursor(indice_x, 0);
+  display.print(aux);
+
+  display.setTextSize(1);
+  aux = "Llego dato desde";
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  display.setCursor(indice_x, 30);
+  display.print(aux);
+
+  aux = "el serie";
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  display.setCursor(indice_x, 35);
+  display.print(aux);
+
+  flag_udp = 1;
+  time1 = millis();
+
+  display.display();
+}
+
+void Pantalla_Boton(int num)
+{
+
+  display.clearDisplay();
+  display.display();
+
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(2);
+
+  String aux = "BOTON ";
+  aux += String(num);
+  int tam = aux.length();
+  int indice_x = 64 - (12 * (int(tam / 2)));
+  display.setCursor(indice_x, 0);
+  display.print(aux);
+
+  display.setTextSize(1);
+  aux = "Enviando al";
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  display.setCursor(indice_x, 30);
+  display.print(aux);
+
+  aux = "servidor";
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  display.setCursor(indice_x, 45);
+  display.print(aux);
+
+  flag_udp = 1;
+  time1 = millis();
+
+  display.display();
+}
+
+void Parpadeo(int time1, int cant)
+{
+
+  for (int x = 0; x < cant; x++)
+  {
+    digitalWrite(D0, LOW);
+    delay(time1);
+    digitalWrite(D0, HIGH);
+    delay(time1);
+  }
+}
+
+void Pant_Llego_Serie(String str)
+{
+
+  display.clearDisplay();
+  display.display();
+
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(2);
+
+  String aux = "SERIE";
+  int tam = aux.length();
+  int indice_x = 64 - (12 * (int(tam / 2)));
+  display.setCursor(indice_x, 0);
+  display.print(aux);
+
+  display.setTextSize(1);
+  aux = "envia:";
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  display.setCursor(indice_x, 20);
+  display.print(aux);
+
+  aux = str;
+  tam = aux.length();
+  indice_x = 64 - (6 * (int(tam / 2)));
+  if (indice_x < 0)
+    indice_x = 0;
+  display.setCursor(indice_x, 35);
+  display.print(aux);
+
+  flag_udp = 1;
+  time1 = millis();
+
+  display.display();
+}
+
+void Pantallas()
+{
+  //--------------------------------MOSTRANDO EN PANTALLA:
+  time2 = millis();
+  if (flag_permitir == 1)
+  {
+    if (flag_servidor == 1) // SERVIDOR
+    {
+      Pant_Llego_Serv(Lectura_Servidor);
+      flag_servidor = 0;
+      flag_permitir = 0;
+      flag_pant_conect = 1;
+      time_pantalla = 3000;
+    }
+    else if (flag_serie == 1) // SERIE
+    {
+      Pant_Llego_Serie(Lectura_Serie);
+      flag_serie = 0;
+      flag_permitir = 0;
+      flag_pant_conect = 1;
+      time_pantalla = 3000;
+    }
+    else if (flag_boton_1 == 1) // BOTON 1
+    {
+      Pantalla_Boton(1);
+      flag_boton_1 = 0;
+      flag_permitir = 0;
+      flag_pant_conect = 1;
+      time_pantalla = 1000;
+    }
+    else if (flag_boton_2 == 1) // BOTON 2
+    {
+      Pantalla_Boton(2);
+      flag_boton_2 = 0;
+      flag_permitir = 0;
+      flag_pant_conect = 1;
+      time_pantalla = 1000;
+    }
+
+    else if (flag_pant_conect == 1)
+    {
+      Pantalla_conectado();
+      flag_pant_conect = 0;
+    }
+    time1 = millis();
+  }
+
+  if ((time2 - time1) > time_pantalla)
+  {
+    flag_permitir = 1;
+    time1 = time2;
+  }
+}
+
+void Leer_Serie_Fenotipado()
+{
+  if (Fenotipado.available() > 0)
+  {
+    Serial.print("\nLlegaron datos desde Fenotipado");
+
+    //--- Llego un dato serie, y lo mando por UDP:
+    Lectura_Serie = "";
+    Lectura_Serie = Fenotipado.readString();
+
+    flag_serie = 1;
+
+    // IPAddress IPdestino(192, 168, 0, 109);
+    // unsigned int destinationPort = 2000;
+    IPAddress IPdestino = UDP.remoteIP();
+    unsigned int destinationPort = UDP.remotePort();
+    Send_UDP(IPdestino, destinationPort, Lectura_Serie);
+  }
+}
+
+void Leer_Pulsadores()
+{
+  //--------------------------------BOTON 1:
+  if (digitalRead(Button_1) == LOW)
+  {
+    // IPAddress IPdestino(192, 168, 0, 109);
+    // unsigned int destinationPort = 2000;
+    IPAddress IPdestino = UDP.remoteIP();
+    unsigned int destinationPort = UDP.remotePort();
+    String msg = "<BOTON 1>";
+    Send_UDP(IPdestino, destinationPort, msg);
+
+    flag_boton_1 = 1;
+
+    while (digitalRead(Button_1) == LOW)
+      delay(1);
+  }
+  //--------------------------------BOTON 2:
+  else if (digitalRead(Button_2) == LOW)
+  {
+    // IPAddress IPdestino(192, 168, 0, 109);
+    // unsigned int destinationPort = 2000;
+    IPAddress IPdestino = UDP.remoteIP();
+    unsigned int destinationPort = UDP.remotePort();
+    String msg = "<BOTON 2>";
+    Send_UDP(IPdestino, destinationPort, msg);
+
+    flag_boton_2 = 1;
+
+    while (digitalRead(Button_2) == LOW)
+      delay(1);
+  }
 }
