@@ -31,7 +31,7 @@ SoftwareSerial Fenotipado(Serie_RX, Serie_TX); // RX, TX
 Adafruit_SSD1306 display(ANCHO_PANTALLA, ALTO_PANTALLA, &Wire, -1);
 void Pantalla_Conectando();
 void Pantalla_conectado();
-void Pantalla_desconectado();
+void Pantalla_desconectado(String);
 void Limpiar_display();
 void Pantalla_Alerta(int);
 void Pantalla_error_conexion();
@@ -93,12 +93,12 @@ String mensaje_html = "";
 // #include <WiFi.h>
 WiFiUDP UDP;
 
-IPAddress IPstatic(192, 168, 0, 213);
+IPAddress IPstatic(192, 168, 0, 215);
 IPAddress gateway(192, 168, 0, 4);
 IPAddress subnet(255, 255, 255, 0);
 
-unsigned int localPort = 4003;
-unsigned int remotePort = 4003;
+unsigned int localPort = 4005;
+unsigned int remotePort = 4005;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 
 boolean ConnectUDP();
@@ -109,9 +109,14 @@ void Get_UDP(bool);
 int time1, time2;
 int flag_1;
 int flag_udp;
-int flag_permitir, flag_serie, flag_servidor, flag_boton_1, flag_boton_2, flag_pant_conect, flag_wifi;
-int time_wifi_1, time_wifi_2;
+int flag_permitir, flag_serie, flag_servidor, flag_boton_1, flag_boton_2, flag_pant_conect;
+int time_wifi_1, time_wifi_2, flag_wifi_ap;
+int reconexiones;
 int time_pantalla;
+
+int Status = WL_IDLE_STATUS;
+int Status_ant = 99;
+String status_string = "";
 
 String Lectura_Serie = "";
 String Lectura_Servidor = "";
@@ -157,14 +162,14 @@ void setup()
   Conectar_wifi(); // La funcion EEPROM esta dentro de Conectar_wifi
   Configurar_servidor();
 
-/*
-  Serial.print("\nLocal IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.print("Subnet Mask: ");
-  Serial.println(WiFi.subnetMask());
-  Serial.print("Gateway IP: ");
-  Serial.println(WiFi.gatewayIP());
-*/
+  /*
+    Serial.print("\nLocal IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("Subnet Mask: ");
+    Serial.println(WiFi.subnetMask());
+    Serial.print("Gateway IP: ");
+    Serial.println(WiFi.gatewayIP());
+  */
 
   ConnectUDP();
 
@@ -177,8 +182,12 @@ void setup()
   flag_servidor = 0;
   flag_pant_conect = 0;
   flag_permitir = 1;
-  flag_wifi = 0;
   time_wifi_1 = millis();
+  reconexiones = 0;
+
+  WiFi.setAutoConnect(true);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
 }
 
 //----------------------------- LOOP
@@ -321,7 +330,7 @@ void Pagina_raiz()
                 "<meta charset='UTF-8'>"
                 "</head>"
                 "<body>"
-                "<h1> - - - Configuración del totem - - - </h1> <br>"
+                "<h1> - - - Configuración del dispositivo - - - </h1> <br>"
                 "<p> Estado: ";
   Pagina_html += Estado_red + "</p> <br>";
   if (Estado_red == "conectado")
@@ -402,18 +411,22 @@ void Conectar_wifi()
   Serial.print("\n Conectando WIFI...");
   Serial.print("\n SSID: " + String(ssid));
   Serial.print("\n Password: " + String(pass));
+  /*
+    if (flag == 0)
+    {
+      WiFi.mode(WIFI_AP_STA);
+      WiFi.begin(ssid, pass);
+      flag = 1;
+    }
+    else if (flag == 1)
+    {
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(ssid, pass);
+    }
+  */
 
-  if (flag == 0)
-  {
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(ssid, pass);
-    flag = 1;
-  }
-  else if (flag == 1)
-  {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, pass);
-  }
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.begin(ssid, pass);
 
   int tiempo_max = 5000;
   int time = 0;
@@ -427,12 +440,10 @@ void Conectar_wifi()
   Limpiar_display();
   if (WiFi.status() != WL_CONNECTED)
   { // No se pudo realizar la conexion. Iniciamos AP
-    Pantalla_error_conexion();
-    delay(4000);
     Serial.print("\n Fallo la conexion a la red: " + String(ssid));
     Estado_red = "desconectado";
     // Iniciamos el AP:
-    WiFi.mode(WIFI_AP);
+    //WiFi.mode(WIFI_AP);
     WiFi.softAP("Sensor_" + String(SensorID), passConf);
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("\n\n Conectarse a la red: Sensor_" + String(SensorID));
@@ -440,7 +451,7 @@ void Conectar_wifi()
     Serial.print("\n IP del access point: ");
     Serial.print(myIP);
     Serial.print("\n-----------------------------");
-    Pantalla_desconectado();
+    Pantalla_desconectado("Desconectado");
   }
   else
   { // Se realizo la conexion correctamente
@@ -451,6 +462,7 @@ void Conectar_wifi()
     Serial.print(WiFi.localIP());
     Serial.print("\n-----------------------------\n");
     Estado_red = "conectado";
+    WiFi.softAPdisconnect(); // Apago el AP
     Pantalla_conectado();
   }
 }
@@ -554,7 +566,7 @@ void Pantalla_conectado()
 /* Fin de funcion PANTALLA Conectado OK */
 
 /* Funcion PANTALLA Desconectada */
-void Pantalla_desconectado()
+void Pantalla_desconectado(String estado)
 {
 
   display.clearDisplay();
@@ -563,7 +575,7 @@ void Pantalla_desconectado()
   display.setTextSize(1);
 
   display.setCursor(0, 0);
-  display.print("Totem sin conexion!");
+  display.print(estado);
 
   display.setCursor(0, 20);
   display.print("Conectar con la red: ");
@@ -974,6 +986,7 @@ void Leer_Pulsadores()
 
 void Verificar_conexion()
 {
+  /*
   int tiempo_ms = 15000; // Cada cuanto quiero verificar la conexion.
   time_wifi_2 = millis();
   if ((time_wifi_2 - time_wifi_1) > tiempo_ms)
@@ -983,7 +996,47 @@ void Verificar_conexion()
     {
       Serial.print("\nWIFI DESCONECTADO, reconectando...");
       Conectar_wifi();
+      Pantalla_desconectado("Sin conexion!");
     }
+
     time_wifi_1 = time_wifi_2;
+  }
+
+  */
+
+  Status = WiFi.status();
+
+  if (Status != Status_ant)
+  {
+    Status_ant = Status;
+    Serial.println("****************************");
+    if (Status == WL_IDLE_STATUS)
+      status_string = "Estado IDLE"; // 0
+    else if (Status == WL_NO_SSID_AVAIL)
+      status_string = "No encuentra el SSID"; // 1
+    else if (Status == WL_SCAN_COMPLETED)
+      status_string = "Escaneo completado"; // 2
+    else if (Status == WL_CONNECTED)
+      status_string = "Conectado"; // 3
+    else if (Status == WL_CONNECT_FAILED)
+      status_string = "Error al conectar"; // 4
+    else if (Status == WL_CONNECTION_LOST)
+      status_string = "Conexion perdida"; // 5
+    else if (Status == WL_DISCONNECTED)
+      status_string = "Desconectado"; // 6
+    else
+      status_string = String(Status);
+    Serial.println(status_string);
+    Serial.println(ssid);
+    Serial.println(pass);
+
+    if (Status == WL_CONNECTED)
+    {
+      Pantalla_conectado();
+    }
+    else
+    {
+      Pantalla_desconectado(status_string);
+    }
   }
 }
