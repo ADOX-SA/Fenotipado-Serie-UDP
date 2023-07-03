@@ -40,7 +40,6 @@ void Pantalla_error_conexion();
 // ID del sensor
 const String SensorID = String(ESP.getChipId(), HEX);
 int flag = 0;
-int flag1 = 0;
 
 //---> EEMPROM
 #include <EEPROM.h>
@@ -82,27 +81,24 @@ void Configurar_servidor();
 void Leer_EEPROM();
 void Envio_Servidor(String);
 
+void Verificar_conexion();
+
 //---> Pagina HTML:
 String Pagina_html = "";
 String Pagina_html_fin = "</body>"
                          "</html>";
 String mensaje_html = "";
 
-//--------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------
-//---------------------------- AGREGADO
-//--------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------
 #include <WiFiUDP.h>
 // #include <WiFi.h>
 WiFiUDP UDP;
 
-IPAddress IPstatic(192, 168, 0, 210);
+IPAddress IPstatic(192, 168, 0, 213);
 IPAddress gateway(192, 168, 0, 4);
 IPAddress subnet(255, 255, 255, 0);
 
-unsigned int localPort = 4000;
-unsigned int remotePort = 4000;
+unsigned int localPort = 4003;
+unsigned int remotePort = 4003;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 
 boolean ConnectUDP();
@@ -113,7 +109,8 @@ void Get_UDP(bool);
 int time1, time2;
 int flag_1;
 int flag_udp;
-int flag_permitir, flag_serie, flag_servidor, flag_boton_1, flag_boton_2, flag_pant_conect;
+int flag_permitir, flag_serie, flag_servidor, flag_boton_1, flag_boton_2, flag_pant_conect, flag_wifi;
+int time_wifi_1, time_wifi_2;
 int time_pantalla;
 
 String Lectura_Serie = "";
@@ -160,15 +157,18 @@ void setup()
   Conectar_wifi(); // La funcion EEPROM esta dentro de Conectar_wifi
   Configurar_servidor();
 
+/*
   Serial.print("\nLocal IP: ");
   Serial.println(WiFi.localIP());
   Serial.print("Subnet Mask: ");
   Serial.println(WiFi.subnetMask());
   Serial.print("Gateway IP: ");
   Serial.println(WiFi.gatewayIP());
+*/
 
   ConnectUDP();
 
+  // INICIALIZACION DE FLAGS
   flag_1 = 0;
   flag_udp = 0;
   flag_boton_1 = 0;
@@ -177,11 +177,15 @@ void setup()
   flag_servidor = 0;
   flag_pant_conect = 0;
   flag_permitir = 1;
+  flag_wifi = 0;
+  time_wifi_1 = millis();
 }
 
 //----------------------------- LOOP
 void loop()
 {
+  //------------------------------- VERIFICAR CONEXION:
+  Verificar_conexion();
 
   Servidor.handleClient(); /* Recibe las peticiones */
 
@@ -196,7 +200,6 @@ void loop()
 
   //---------------------- Mostrar pantallas
   Pantallas();
-
 }
 
 void Leer_EEPROM()
@@ -210,10 +213,12 @@ void Leer_EEPROM()
   }
   EEPROM.get(dir_ssid, ssid);
   EEPROM.get(dir_pass, pass);
+  /*
   Serial.print("\n--------------------------------");
   Serial.print("\n Datos leidos de la EEPROM:");
   Serial.print("\n SSID: " + String(ssid));
   Serial.print("\n PASS: " + String(pass));
+  */
 }
 
 void Configurar_servidor()
@@ -393,7 +398,7 @@ void Pagina_wifi()
 void Conectar_wifi()
 {
   Leer_EEPROM(); // Leemos el SSID y PASS para conectar
-  flag1 = 0;     // Para evitar que titile el amarillo!
+  Serial.print("\n\n-----------------------------");
   Serial.print("\n Conectando WIFI...");
   Serial.print("\n SSID: " + String(ssid));
   Serial.print("\n Password: " + String(pass));
@@ -434,6 +439,7 @@ void Conectar_wifi()
     Serial.print("\n Con la contraseña: " + String(passConf));
     Serial.print("\n IP del access point: ");
     Serial.print(myIP);
+    Serial.print("\n-----------------------------");
     Pantalla_desconectado();
   }
   else
@@ -443,41 +449,12 @@ void Conectar_wifi()
     Serial.print("\n Se conecto a la red: " + String(ssid) + " correctamente!");
     Serial.print("\n Con la IP: ");
     Serial.print(WiFi.localIP());
+    Serial.print("\n-----------------------------\n");
     Estado_red = "conectado";
     Pantalla_conectado();
   }
 }
 /* Fin de funcion */
-
-void Envio_Servidor(String dato)
-{
-  //-----> Envio al servidor
-  WiFiClient cliente_1; // Podemos poner cualquier nombre
-  HTTPClient http_1;    // Podemos poner cualquier nombre
-
-  String getData, linkCompleto;
-
-  getData = "?dato=" + dato;
-  linkCompleto = link + getData;
-
-  Serial.print("LINK:");
-  Serial.println(linkCompleto);
-
-  http_1.begin(cliente_1, linkCompleto); /* Iniciamos */
-
-  // delay(1000);
-
-  int CodigoDeRespuesta = http_1.GET(); /*Codigo de error que responde el
-  sevidor; 200: exitosa 404: no encontrado 500: servidor no pudo responder*/
-
-  String respuesta = http_1.getString(); /* Para obtener la propia respuesta del servidor, directamente*/
-
-  Serial.print("\nCodigo de respuesta:");
-  Serial.print(CodigoDeRespuesta);
-  Serial.print("\n\n Respuesta:");
-  Serial.println(respuesta);
-}
-/* Fin funcion */
 
 /* Funcion pantalla CONECTANDO... */
 void Pantalla_Conectando()
@@ -992,5 +969,21 @@ void Leer_Pulsadores()
 
     while (digitalRead(Button_2) == LOW)
       delay(1);
+  }
+}
+
+void Verificar_conexion()
+{
+  int tiempo_ms = 15000; // Cada cuanto quiero verificar la conexion.
+  time_wifi_2 = millis();
+  if ((time_wifi_2 - time_wifi_1) > tiempo_ms)
+  {
+    Serial.print("\nVerificando conexion...");
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.print("\nWIFI DESCONECTADO, reconectando...");
+      Conectar_wifi();
+    }
+    time_wifi_1 = time_wifi_2;
   }
 }
