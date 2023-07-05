@@ -93,12 +93,15 @@ String mensaje_html = "";
 // #include <WiFi.h>
 WiFiUDP UDP;
 
-IPAddress IPstatic(192, 168, 0, 215);
+IPAddress IPstatic(192, 168, 0, 217);
+
 IPAddress gateway(192, 168, 0, 4);
 IPAddress subnet(255, 255, 255, 0);
 
-unsigned int localPort = 4005;
-unsigned int remotePort = 4005;
+unsigned int localPort = 4007;
+unsigned int remotePort = 4007;
+
+IPAddress IPremote(192, 168, 0, 100);
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 
 boolean ConnectUDP();
@@ -542,12 +545,11 @@ void Pantalla_conectado()
   display.setTextSize(1);
 
   display.setCursor(0, 0);
-  display.println("SensorID:");
-  display.setCursor(55, 0);
+  display.print("ID: ");
   display.println(SensorID);
 
   display.setCursor(0, 30);
-  display.print("IP:");
+  display.print("IP: ");
   display.println(WiFi.localIP().toString());
 
   display.setCursor(0, 15);
@@ -679,7 +681,8 @@ void SendUDP_Packet(String content)
 void Get_UDP(bool sendACK = true)
 {
   int packetSize = UDP.parsePacket();
-  if (packetSize)
+  //if (packetSize)
+  if(UDP.available()>0)
   {
     // read the packet into packetBufffer
     UDP.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
@@ -944,9 +947,8 @@ void Leer_Serie_Fenotipado()
 
     // IPAddress IPdestino(192, 168, 0, 109);
     // unsigned int destinationPort = 2000;
-    IPAddress IPdestino = UDP.remoteIP();
-    unsigned int destinationPort = UDP.remotePort();
-    Send_UDP(IPdestino, destinationPort, Lectura_Serie);
+    
+    Send_UDP(IPremote, remotePort, Lectura_Serie);
   }
 }
 
@@ -955,12 +957,9 @@ void Leer_Pulsadores()
   //--------------------------------BOTON 1:
   if (digitalRead(Button_1) == LOW)
   {
-    // IPAddress IPdestino(192, 168, 0, 109);
-    // unsigned int destinationPort = 2000;
-    IPAddress IPdestino = UDP.remoteIP();
-    unsigned int destinationPort = UDP.remotePort();
+
     String msg = "<BOTON 1>";
-    Send_UDP(IPdestino, destinationPort, msg);
+    Send_UDP(IPremote, remotePort, msg);
 
     flag_boton_1 = 1;
 
@@ -970,12 +969,8 @@ void Leer_Pulsadores()
   //--------------------------------BOTON 2:
   else if (digitalRead(Button_2) == LOW)
   {
-    // IPAddress IPdestino(192, 168, 0, 109);
-    // unsigned int destinationPort = 2000;
-    IPAddress IPdestino = UDP.remoteIP();
-    unsigned int destinationPort = UDP.remotePort();
     String msg = "<BOTON 2>";
-    Send_UDP(IPdestino, destinationPort, msg);
+    Send_UDP(IPremote, remotePort, msg);
 
     flag_boton_2 = 1;
 
