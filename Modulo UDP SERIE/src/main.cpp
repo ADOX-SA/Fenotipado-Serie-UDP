@@ -1,49 +1,4 @@
 #include <Arduino.h>
-#include <avr/pgmspace.h>
-
-const char *pagina_IP_html PROGMEM = "<!DOCTYPE html>"
-                                     "<html>"
-                                     "<head>"
-                                     "<title>Configuración de IP y puertos</title>"
-                                     "<meta charset='UTF-8'>"
-                                     "</head>"
-                                     "<body>"
-                                     "<h1>IP local</h1>"
-                                     "</form>"
-                                     "<form action='guardar_ip_local' method='post'>"
-                                     "IP LOCAL:"
-                                     "<input class='input1' name='local_ip' type='text'><br><br>"
-                                     "PUERTO LOCAL:"
-                                     "<input class='input1' name='local_port' type='text'><br><br>"
-                                     "<input class='boton' type='submit' value='GUARDAR'/><br><br>"
-                                     "</form>"
-                                     "<br><h1>IP destino</h1>"
-                                     "</form>"
-                                     "<form action='guardar_ip_remota' method='post'>"
-                                     "IP REMOTA:"
-                                     "<input class='input1' name='remote_ip' type='text'><br><br>"
-                                     "PUERTO REMOTO:"
-                                     "<input class='input1' name='remote_port' type='text'><br><br>"
-                                     "<input class='boton' type='submit' value='GUARDAR'/><br><br>"
-                                     "</form>";
-
-const char *pagina_wifi_html PROGMEM = "<!DOCTYPE html>"
-                                       "<html>"
-                                       "<head>"
-                                       "<title>Configuración WiFi</title>"
-                                       "<meta charset='UTF-8'>"
-                                       "</head>"
-                                       "<body>"
-                                       "<h1> - - - Ingresar red - - - </h1> <br>"
-                                       "</form>"
-                                       "<form action='conectar' method='post'>"
-                                       "SSID:"
-                                       "<input class='input1' name='ssid' type='text'><br><br>"
-                                       "PASSWORD:"
-                                       "<input class='input1' name='pass' type='password'><br><br>"
-                                       "<input class='boton' type='submit' value='CONECTAR'/><br><br>"
-                                       "</form>"
-                                       "<a href='/escanear'><button class='boton'>Escanear</button></a><br><br>";
 
 /*
     //PARA GENERAR EL BINARIO:
@@ -142,7 +97,12 @@ String mensaje_html = "";
 // #include <WiFi.h>
 WiFiUDP UDP;
 
-IPAddress IPremote(192, 168, 0, 100);
+IPAddress IPstatic(192, 168, 0, 217);
+IPAddress gateway(192, 168, 0, 4);
+IPAddress subnet(255, 255, 255, 0);
+
+unsigned int localPort = 4007;
+unsigned int remotePort = 4007;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 
 boolean ConnectUDP();
@@ -175,44 +135,9 @@ void Pantallas();
 void Leer_Serie_Fenotipado();
 void Leer_Pulsadores();
 
-//------Agregado:
-String aux_1 = "";
-String aux_2 = "";
-
-void Guardar_ip_local();
-void Pagina_ipconfig();
-void Guardar_ip_remota();
-void Leer_IP_EEPROM();
-void Mostrar_ip_serie();
-#define TAM_IP 20
-
-// Variables para los argumentos del WebServer y EEPROM
-int dir_localPort = 100;
-
-char localIP_str[TAM_IP];
-int dir_localIP = 125;
-
-char remoteIP_str[TAM_IP];
-int dir_remoteIP = 150;
-
-int dir_remotePort = 175;
-
-// Variables utilizadas para las funciones
-
-IPAddress IP_local;
-unsigned int PORT_local;
-
-IPAddress IP_remote;
-unsigned int PORT_remote;
-
-IPAddress gateway(192, 168, 0, 4);
-IPAddress subnet(255, 255, 255, 0);
-
 //------------------------------------------ SETUP
 void setup()
 {
-  EEPROM.begin(512);
-  Leer_IP_EEPROM();
 
   pinMode(D0, OUTPUT);
   digitalWrite(D0, HIGH);
@@ -234,7 +159,7 @@ void setup()
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 
   //--- Para UDP:
-  if (WiFi.config(IP_local, gateway, subnet) == false)
+  if (WiFi.config(IPstatic, gateway, subnet) == false)
     Serial.println("Configuration failed.");
 
   //---> Configuracion de WIFI
@@ -273,7 +198,7 @@ void loop()
   Leer_Pulsadores();
 
   //--------------------------------RECIBO UDP:
-  //Get_UDP();
+  Get_UDP();
 
   //--------------------------------RECIBO SERIE:
   Leer_Serie_Fenotipado();
@@ -285,7 +210,7 @@ void loop()
 void Leer_EEPROM()
 {
 
-  
+  EEPROM.begin(512);
   for (int i = 0; i < 50; i++)
   {
     ssid[i] = 0;
@@ -315,11 +240,6 @@ void Configurar_servidor()
 
   Servidor.on("/escanear", Escanear_redes);
   Servidor.on("/conectar", Conectar_nueva_red);
-  //--Agregado:
-  Servidor.on("/ipconfig", Pagina_ipconfig);
-  Servidor.on("/guardar_ip_local", Guardar_ip_local);
-  Servidor.on("/guardar_ip_remota", Guardar_ip_remota);
-  //---
   Servidor.begin();
   Serial.println("\n Servidor iniciado");
 }
@@ -414,11 +334,13 @@ void Pagina_raiz()
                 "<h1> - - - Configuración del dispositivo - - - </h1> <br>"
                 "<p> Estado: ";
   Pagina_html += Estado_red + "</p> <br>";
+  // if (Estado_red == "conectado")
   if (WiFi.status() == WL_CONNECTED)
   {
     Pagina_html += "<p>SSID: " + String(ssid) + "</p>";
     Pagina_html += "<p>IP asignada por la red: " + WiFi.localIP().toString() + "</p>";
   }
+  // else if (Estado_red == "desconectado")
   else
   {
     Pagina_html += "<p> Falló la conexion a la red: " + String(ssid) + "</p>";
@@ -435,15 +357,15 @@ void Escanear_redes()
 {
   Serial.print("\n Enviando Escanear_redes");
   int cant_redes = WiFi.scanNetworks(); // devuelve el número de redes encontradas
-  //Serial.println("escaneo terminado");
+  // Serial.println("escaneo terminado");
   if (cant_redes == 0) // si no encuentra ninguna red
   {
-    //Serial.println("no se encontraron redes");
+    // Serial.println("no se encontraron redes");
     mensaje_html = "no se encontraron redes";
   }
   else
   {
-    //Serial.print("\n " + String(cant_redes) + " redes encontradas!");
+    // Serial.print("\n " + String(cant_redes) + " redes encontradas!");
     mensaje_html = "";
     mensaje_html = "<p> Redes encontradas: </p><br>";
     for (int i = 0; i < cant_redes; ++i)
@@ -452,7 +374,7 @@ void Escanear_redes()
       mensaje_html += "<p>" + String(i + 1) + ": " + WiFi.SSID(i) + " </p>\r\n";
       delay(20);
     }
-    //Serial.println(mensaje_html);
+    // Serial.println(mensaje_html);
     Pagina_wifi();
     mensaje_html = "";
   }
@@ -462,8 +384,29 @@ void Pagina_wifi()
 {
   Serial.print("\n Enviando Pagina_wifi");
   String boton_back = "<br><a href='/'>[Back]</a><br>";
+  String pagina = "<!DOCTYPE html>"
+                  "<html>"
+                  "<head>"
+                  "<title>Configuración WiFi</title>"
+                  "<meta charset='UTF-8'>"
+                  "</head>"
+                  "<body>"
+                  "<h1> - - - Ingresar red - - - </h1> <br>";
+  /* OJO CAMBIE EL GET POR EL POST
+  ANTES ESTABA ASI:
+  pagina += "</form>"
+             "<form action='conectar' method='get'>" */
+  pagina += "</form>"
+            "<form action='conectar' method='post'>"
+            "SSID:"
+            "<input class='input1' name='ssid' type='text'><br>"
+            "PASSWORD:"
+            "<input class='input1' name='pass' type='password'><br><br>"
+            "<input class='boton' type='submit' value='CONECTAR'/><br><br>"
+            "</form>"
+            "<a href='/escanear'><button class='boton'>Escanear</button></a><br><br>";
 
-  Servidor.send(200, "text/html", pagina_wifi_html + mensaje_html + boton_back + Pagina_html_fin);
+  Servidor.send(200, "text/html", pagina + mensaje_html + boton_back + Pagina_html_fin);
 }
 
 /* Funcion Conectar wifi */
@@ -474,18 +417,22 @@ void Conectar_wifi()
   Serial.print("\n Conectando WIFI...");
   Serial.print("\n SSID: " + String(ssid));
   Serial.print("\n Password: " + String(pass));
+  /*
+    if (flag == 0)
+    {
+      WiFi.mode(WIFI_AP_STA);
+      WiFi.begin(ssid, pass);
+      flag = 1;
+    }
+    else if (flag == 1)
+    {
+      WiFi.mode(WIFI_STA);
+      WiFi.begin(ssid, pass);
+    }
+  */
 
-  if (flag == 0)
-  {
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(ssid, pass);
-    flag = 1;
-  }
-  else if (flag == 1)
-  {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, pass);
-  }
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.begin(ssid, pass);
 
   int tiempo_max = 5000;
   int time = 0;
@@ -502,7 +449,7 @@ void Conectar_wifi()
     Serial.print("\n Fallo la conexion a la red: " + String(ssid));
     Estado_red = "desconectado";
     // Iniciamos el AP:
-    WiFi.mode(WIFI_AP);
+    // WiFi.mode(WIFI_AP);
     WiFi.softAP("Sensor_" + String(SensorID), passConf);
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("\n\n Conectarse a la red: Sensor_" + String(SensorID));
@@ -521,6 +468,7 @@ void Conectar_wifi()
     Serial.print(WiFi.localIP());
     Serial.print("\n-----------------------------\n");
     Estado_red = "conectado";
+    WiFi.softAPdisconnect(); // Apago el AP
     Pantalla_conectado();
   }
 }
@@ -600,11 +548,12 @@ void Pantalla_conectado()
   display.setTextSize(1);
 
   display.setCursor(0, 0);
-  display.print("ID: ");
+  display.println("SensorID:");
+  display.setCursor(55, 0);
   display.println(SensorID);
 
   display.setCursor(0, 30);
-  display.print("IP: ");
+  display.print("IP:");
   display.println(WiFi.localIP().toString());
 
   display.setCursor(0, 15);
@@ -704,7 +653,7 @@ boolean ConnectUDP()
   Serial.println("Starting UDP");
 
   // in UDP error, block execution
-  if (UDP.begin(PORT_local) != 1)
+  if (UDP.begin(localPort) != 1)
   {
     Serial.println("Connection failed");
     while (true)
@@ -717,21 +666,45 @@ boolean ConnectUDP()
   return false;
 }
 
-void Get_UDP(bool sendACK = true)
+void SendUDP_ACK()
 {
+  Serial.print("\n\nEnvio ACK.");
+  UDP.beginPacket(UDP.remoteIP(), remotePort);
+  UDP.write("ACK");
+  UDP.endPacket();
+}
+
+void SendUDP_Packet(String content)
+{
+  Serial.print("\nEnvio Packet");
+  UDP.beginPacket(UDP.remoteIP(), remotePort);
+  UDP.write(content.c_str());
+  UDP.endPacket();
+}
+
+void Get_UDP()
+{
+  delay(1);
+  int t1 = millis();
   int packetSize = UDP.parsePacket();
-  // if (packetSize)
-  if (UDP.available() > 0)
+
+  //Antes usaba este if pero genera errores al enviar datos por WebServer (pagina):
+  //if (packetSize){ 
+
+  if(UDP.available()>0)
   {
+    Serial.print("\nRecibi datos por UDP...");
     // read the packet into packetBufffer
     UDP.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
 
     Serial.println();
-    Serial.print("["+String(packetSize)+"]: ");
+    Serial.print("Tam: ");
+    Serial.print(packetSize);
+    Serial.print(" desde la IP: ");
     Serial.print(UDP.remoteIP());
-    Serial.print(" : ");
+    Serial.print(", puerto: ");
     Serial.print(UDP.remotePort());
-    Serial.print(" : ");
+    Serial.print(". Mensaje: ");
     Serial.write((uint8_t *)packetBuffer, (size_t)packetSize);
 
     Lectura_Servidor = "";
@@ -745,6 +718,10 @@ void Get_UDP(bool sendACK = true)
     Serial.print("\nEnviando lo recibido a Fenotipado: " + Lectura_Servidor);
     Fenotipado.write((uint8_t *)packetBuffer, (size_t)packetSize);
   }
+  int t2 = millis();
+  int dif = t2 - t1;
+  if (dif > 10)
+    Serial.print("\nDiferencia: " + String(dif));
 }
 
 void Send_UDP(IPAddress ip_f, unsigned int port_f, String str_f)
@@ -984,8 +961,9 @@ void Leer_Serie_Fenotipado()
 
     // IPAddress IPdestino(192, 168, 0, 109);
     // unsigned int destinationPort = 2000;
-
-    Send_UDP(IPremote, PORT_remote, Lectura_Serie);
+    IPAddress IPdestino = UDP.remoteIP();
+    unsigned int destinationPort = UDP.remotePort();
+    Send_UDP(IPdestino, destinationPort, Lectura_Serie);
   }
 }
 
@@ -994,9 +972,12 @@ void Leer_Pulsadores()
   //--------------------------------BOTON 1:
   if (digitalRead(Button_1) == LOW)
   {
-
+    // IPAddress IPdestino(192, 168, 0, 109);
+    // unsigned int destinationPort = 2000;
+    IPAddress IPdestino = UDP.remoteIP();
+    unsigned int destinationPort = UDP.remotePort();
     String msg = "<BOTON 1>";
-    Send_UDP(IPremote, PORT_remote, msg);
+    Send_UDP(IPdestino, destinationPort, msg);
 
     flag_boton_1 = 1;
 
@@ -1006,8 +987,12 @@ void Leer_Pulsadores()
   //--------------------------------BOTON 2:
   else if (digitalRead(Button_2) == LOW)
   {
+    // IPAddress IPdestino(192, 168, 0, 109);
+    // unsigned int destinationPort = 2000;
+    IPAddress IPdestino = UDP.remoteIP();
+    unsigned int destinationPort = UDP.remotePort();
     String msg = "<BOTON 2>";
-    Send_UDP(IPremote, PORT_remote, msg);
+    Send_UDP(IPdestino, destinationPort, msg);
 
     flag_boton_2 = 1;
 
@@ -1041,6 +1026,8 @@ void Verificar_conexion()
     else
       status_string = String(Status);
     Serial.println(status_string);
+    Serial.println(ssid);
+    Serial.println(pass);
 
     if (Status == WL_CONNECTED)
     {
@@ -1053,109 +1040,136 @@ void Verificar_conexion()
   }
 }
 
-//-------------------------------------------
-//---------------AGREGADO:
-//-------------------------------------------
-
 void Pagina_ipconfig()
 {
   Serial.print("\n Enviando Pagina_ipcongif");
   String boton_back = "<br><a href='/'>[Back]</a><br>";
+  String pagina = "<!DOCTYPE html>"
+                  "<html>"
+                  "<head>"
+                  "<title>Configuración de IP y puertos</title>"
+                  "<meta charset='UTF-8'>"
+                  "</head>"
+                  "<body>"
+                  "<h1> - - - IP local - - - </h1>";
+  /* OJO CAMBIE EL GET POR EL POST
+  ANTES ESTABA ASI:
+  pagina += "</form>"
+             "<form action='conectar' method='get'>" */
+  pagina += "</form>"
+            "<form action='guardar_ip_local' method='post'>"
+            "IP LOCAL:"
+            "<input class='input1' name='local_ip' type='text'><br><br>"
+            "PUERTO LOCAL:"
+            "<input class='input1' name='local_port' type='password'><br><br>"
+            "<input class='boton' type='submit' value='GUARDAR'/><br><br>"
+            "</form>";
 
-  Servidor.send(200, "text/html", pagina_IP_html + mensaje_html + boton_back + Pagina_html_fin);
+  pagina += "<br><h1> - - - IP destino - - - </h1>"
+            "</form>"
+            "<form action='guardar_ip_remota' method='post'>"
+            "IP REMOTA:"
+            "<input class='input1' name='remote_ip' type='text'><br><br>"
+            "PUERTO REMOTO:"
+            "<input class='input1' name='remote_port' type='password'><br><br>"
+            "<input class='boton' type='submit' value='GUARDAR'/><br><br>"
+            "</form>";
+
+  Servidor.send(200, "text/html", pagina + mensaje_html + boton_back + Pagina_html_fin);
 }
 
 void Guardar_ip_local()
 {
-  
-  aux_1 = String(Servidor.arg("local_ip"));
-  Serial.print("\nRecibo ip String: ");
-  Serial.print(aux_1);
 
-  aux_2 = String(Servidor.arg("local_port"));
-  Serial.print("\nRecibo puerto String: ");
-  Serial.print(aux_2);
+  String IP_aux = "";
+  String PORT_aux = "";
 
-  for (int i = 0; i < TAM_IP; i++)
-  {
-    localIP_str[i] = aux_1[i]; // Copiamos el string a la cadena
-  }
+  IP_aux = String(Servidor.arg("local_ip"));
+  PORT_aux = String(Servidor.arg("local_port"));
 
-  EEPROM.put(dir_localIP, localIP_str);
-  EEPROM.commit();
+  /*
+    for (int i = 0; i < TAM_SSID; i++)
+    {
+      ssid[i] = IP_aux[i]; // Copiamos el string a la cadena
+    }
+    for (int i = 0; i < TAM_PASS; i++)
+    {
+      pass[i] = PORT_aux[i]; // Copiamos el string a la cadena
+    }
+  */
+  Serial.print("\n -----------------------------------");
+  Serial.print("\n Guardando IP local...");
+  // Serial.print("\n Argumentos recibidos del server");
+  Serial.print("\n IP LOCAL: " + String(IP_aux));
+  Serial.print("\n PUERTO LOCAL: " + String(PORT_aux));
 
-  PORT_local = aux_2.toInt();
-  EEPROM.put(dir_localPort, PORT_local);
-  EEPROM.commit();
+  IPAddress IP_nueva;
+  IP_nueva.fromString(IP_aux.c_str());
+  Serial.print("\n IP (tipo IPAdress): ");
+  Serial.print(IP_nueva);
 
-  Leer_IP_EEPROM();
+  Serial.print("\n -----------------------------------");
 
-  mensaje_html = "\n IP y puerto local guardado!";
+  /*
+    EEPROM.put(dir_ssid, ssid);
+    EEPROM.commit();
+    EEPROM.put(dir_pass, pass);
+    EEPROM.commit();
+  */
+  /*
+    mensaje_html = "\n Configuración guardada! Se intentará realizar la conexión.";
+    Pagina_wifi();
+    Conectar_wifi();
+    mensaje_html = "";
+  */
+
   Pagina_ipconfig();
-  mensaje_html = "";
 }
 
 void Guardar_ip_remota()
 {
-  
-  aux_1 = String(Servidor.arg("remote_ip"));
-  Serial.print("\nRecibo ip String: ");
-  Serial.print(aux_1);
 
-  aux_2 = String(Servidor.arg("remote_port"));
-  Serial.print("\nRecibo puerto String: ");
-  Serial.print(aux_2);
+  String IP_aux = "";
+  String PORT_aux = "";
 
-  for (int i = 0; i < TAM_IP; i++)
-  {
-    remoteIP_str[i] = aux_1[i]; // Copiamos el string a la cadena
-  }
+  IP_aux = String(Servidor.arg("remote_ip"));
+  PORT_aux = String(Servidor.arg("remote_port"));
 
-  EEPROM.put(dir_remoteIP, remoteIP_str);
-  EEPROM.commit();
+  /*
+    for (int i = 0; i < TAM_SSID; i++)
+    {
+      ssid[i] = IP_aux[i]; // Copiamos el string a la cadena
+    }
+    for (int i = 0; i < TAM_PASS; i++)
+    {
+      pass[i] = PORT_aux[i]; // Copiamos el string a la cadena
+    }
+  */
+  Serial.print("\n -----------------------------------");
+  // Serial.print("\n Argumentos recibidos del server");
+  Serial.print("\n Guardando IP remota...");
+  Serial.print("\n IP REMOTA: " + String(IP_aux));
+  Serial.print("\n PUERTO REMOTO: " + String(PORT_aux));
 
-  PORT_remote = aux_2.toInt();
-  EEPROM.put(dir_remotePort, PORT_remote);
-  EEPROM.commit();
+  IPAddress IP_nueva;
+  IP_nueva.fromString(IP_aux.c_str());
+  Serial.print("\n IP (tipo IPAdress): ");
+  Serial.print(IP_nueva);
 
-  Leer_IP_EEPROM();
+  Serial.print("\n -----------------------------------");
 
-  mensaje_html = "\n IP y puerto remoto guardado!";
+  /*
+    EEPROM.put(dir_ssid, ssid);
+    EEPROM.commit();
+    EEPROM.put(dir_pass, pass);
+    EEPROM.commit();
+  */
+  /*
+    mensaje_html = "\n Configuración guardada! Se intentará realizar la conexión.";
+    Pagina_wifi();
+    Conectar_wifi();
+    mensaje_html = "";
+  */
+
   Pagina_ipconfig();
-  mensaje_html = "";
-}
-
-void Mostrar_ip_serie()
-{
-  Serial.print("\n--------------------------------");
-  Serial.print("\nIPs y Puertos (tipo IPAddress):");
-  Serial.print("\n LOCAL IP: ");
-  Serial.print(IP_local);
-  Serial.print("\n LOCAL PORT: " + String(PORT_local));
-  Serial.print("\n REMOTE IP: ");
-  Serial.print(IP_remote);
-  Serial.print("\n REMOTE PORT: " + String(PORT_remote));
-  Serial.print("\nWiFi status: " + String(WiFi.status()));
-  Serial.print("\n--------------------------------");
-}
-
-void Leer_IP_EEPROM()
-{
-  for (int i = 0; i < TAM_IP; i++)
-  {
-    localIP_str[i] = 0;
-    remoteIP_str[i] = 0;
-  }
-
-  EEPROM.get(dir_localIP, localIP_str);
-  EEPROM.get(dir_localPort, PORT_local);
-  EEPROM.get(dir_remoteIP, remoteIP_str);
-  EEPROM.get(dir_remotePort, PORT_remote);
-
-  //------ Pasamos a las variables tipo IPAdress:
-  IP_local.fromString(localIP_str);
-
-  IP_remote.fromString(remoteIP_str);
-
-  Mostrar_ip_serie();
 }
