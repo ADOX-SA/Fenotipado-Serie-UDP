@@ -133,7 +133,7 @@ void Mostrar_ip_serie();
 #define TAM_IP 20
 
 // Variables para los argumentos del WebServer y EEPROM
-String localPort_str = "";
+//unsigned int localPort_str;
 int dir_localPort = 100;
 
 char localIP_str[TAM_IP];
@@ -142,11 +142,11 @@ int dir_localIP = 125;
 char remoteIP_str[TAM_IP];
 int dir_remoteIP = 150;
 
-String remotePort_str = "";
+//unsigned int remotePort_str;
 int dir_remotePort = 175;
 
 // Variables utilizadas para las funciones
-// IPAddress IPstatic(192, 168, 0, 217);
+
 IPAddress IP_local;
 unsigned int PORT_local;
 
@@ -1111,27 +1111,15 @@ void Guardar_ip_local()
   {
     localIP_str[i] = localIP_aux[i]; // Copiamos el string a la cadena
   }
-  localPort_str = localPort_aux;
+  PORT_local = localPort_aux.toInt();
 
   EEPROM.put(dir_localIP, localIP_str);
   EEPROM.commit();
-  EEPROM.put(dir_localPort, localPort_str);
+  EEPROM.put(dir_localPort, PORT_local);
   EEPROM.commit();
 
-  //---> Guardo lo leido en las variables que uso: 
-  /*
   IP_local.fromString(localIP_str);
-  PORT_local = localPort_str.toInt();
-  */
-  //-------------
-/*
-  if (WiFi.config(IP_local, gateway, subnet) == false)
-    Serial.println("Configuration failed.");
 
-  UDP.stop();
-  delay(20);
-  ConnectUDP();
-*/
   Mostrar_ip_serie();
   //--------------------
   mensaje_html = "\n Configuración guardada!";
@@ -1141,35 +1129,33 @@ void Guardar_ip_local()
 
 void Guardar_ip_remota()
 {
-
   String remoteIP_aux = "";
   String remotePort_aux = "";
 
   remoteIP_aux = String(Servidor.arg("remote_ip"));
   remotePort_aux = String(Servidor.arg("remote_port"));
-/*
+
   for (int i = 0; i < TAM_IP; i++)
   {
     remoteIP_str[i] = remoteIP_aux[i]; // Copiamos el string a la cadena
   }
-  remotePort_str = remotePort_aux;
-*/
-/*
+  
+  PORT_remote = remotePort_aux.toInt();
+
   EEPROM.put(dir_remoteIP, remoteIP_str);
   EEPROM.commit();
-  EEPROM.put(dir_remotePort, remotePort_str);
+  EEPROM.put(dir_remotePort, PORT_remote);
   EEPROM.commit();
-*/
+
 
   Serial.print("\n -----------------------------------");
   Serial.print("\n Guardando IP remota...");
   Serial.print("\n IP REMOTA: " + String(remoteIP_str));
-  Serial.print("\n PUERTO REMOTO: " + String(remotePort_str));
+  Serial.print("\n PUERTO REMOTO: " + String(PORT_remote));
   Serial.print("\n -----------------------------------");
-/*
+
   IP_remote.fromString(remoteIP_str);
-  PORT_remote = remotePort_str.toInt();
-*/
+
   Mostrar_ip_serie();
 
   mensaje_html = "\n Configuración guardada!";
@@ -1186,16 +1172,15 @@ void Leer_IP_EEPROM()
   }
 
   EEPROM.get(dir_localIP, localIP_str);
-  EEPROM.get(dir_localPort, localPort_str);
+  EEPROM.get(dir_localPort, PORT_local);
   EEPROM.get(dir_remoteIP, remoteIP_str);
-  EEPROM.get(dir_remotePort, remotePort_str);
+  EEPROM.get(dir_remotePort, PORT_remote);
 
   //------ Pasamos a las variables tipo IPAdress:
   IP_local.fromString(localIP_str);
-  PORT_local = localPort_str.toInt();
 
   IP_remote.fromString(remoteIP_str);
-  PORT_remote = remotePort_str.toInt();
+
   Mostrar_ip_serie();
 }
 
