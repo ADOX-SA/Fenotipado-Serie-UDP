@@ -126,6 +126,10 @@ void Configurar_servidor();
 void Leer_EEPROM();
 void Envio_Servidor(String);
 
+void Guardar_ip_local();
+void Pagina_ipconfig();
+void Guardar_ip_remota();
+
 void Verificar_conexion();
 
 //---> Pagina HTML:
@@ -144,7 +148,7 @@ char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 boolean ConnectUDP();
 void SendUDP_ACK();
 void SendUDP_Packet(String);
-void Get_UDP(bool);
+void Get_UDP();
 
 int time1, time2;
 int flag_1;
@@ -262,13 +266,14 @@ void loop()
   //------------------------------- VERIFICAR CONEXION:
   Verificar_conexion();
 
-  Servidor.handleClient(); /* Recibe las peticiones */
+  //------------------------------- LEER PETICIONES:
+  Servidor.handleClient();
 
   //--------------------------------LEER BOTONES:
   Leer_Pulsadores();
 
   //--------------------------------RECIBO UDP:
-  Get_UDP(true);
+  //Get_UDP();
 
   //--------------------------------RECIBO SERIE:
   Leer_Serie_Fenotipado();
@@ -303,6 +308,11 @@ void Configurar_servidor()
 
   Servidor.on("/", Pagina_raiz);
   Servidor.on("/wifi", Pagina_wifi);
+
+  Servidor.on("/ipconfig", Pagina_ipconfig);
+  Servidor.on("/guardar_ip_local", Guardar_ip_local);
+  Servidor.on("/guardar_ip_remota", Guardar_ip_remota);
+
   Servidor.on("/escanear", Escanear_redes);
   Servidor.on("/conectar", Conectar_nueva_red);
   //--Agregado:
@@ -425,15 +435,15 @@ void Escanear_redes()
 {
   Serial.print("\n Enviando Escanear_redes");
   int cant_redes = WiFi.scanNetworks(); // devuelve el número de redes encontradas
-  Serial.println("escaneo terminado");
+  //Serial.println("escaneo terminado");
   if (cant_redes == 0) // si no encuentra ninguna red
   {
-    Serial.println("no se encontraron redes");
+    //Serial.println("no se encontraron redes");
     mensaje_html = "no se encontraron redes";
   }
   else
   {
-    Serial.print("\n " + String(cant_redes) + " redes encontradas!");
+    //Serial.print("\n " + String(cant_redes) + " redes encontradas!");
     mensaje_html = "";
     mensaje_html = "<p> Redes encontradas: </p><br>";
     for (int i = 0; i < cant_redes; ++i)
@@ -442,7 +452,7 @@ void Escanear_redes()
       mensaje_html += "<p>" + String(i + 1) + ": " + WiFi.SSID(i) + " </p>\r\n";
       delay(20);
     }
-    Serial.println(mensaje_html);
+    //Serial.println(mensaje_html);
     Pagina_wifi();
     mensaje_html = "";
   }
@@ -1008,7 +1018,6 @@ void Leer_Pulsadores()
 
 void Verificar_conexion()
 {
-
   Status = WiFi.status();
 
   if (Status != Status_ant)
