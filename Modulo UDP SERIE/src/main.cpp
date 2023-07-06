@@ -98,8 +98,6 @@ WiFiUDP UDP;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 
 boolean ConnectUDP();
-void SendUDP_ACK();
-void SendUDP_Packet(String);
 void Get_UDP();
 
 int time1, time2;
@@ -692,21 +690,6 @@ boolean ConnectUDP()
   return false;
 }
 
-void SendUDP_ACK()
-{
-  Serial.print("\n\nEnvio ACK.");
-  UDP.beginPacket(IP_remote, PORT_remote);
-  UDP.write("ACK");
-  UDP.endPacket();
-}
-
-void SendUDP_Packet(String content)
-{
-  Serial.print("\nEnvio Packet");
-  UDP.beginPacket(IP_remote, PORT_remote);
-  UDP.write(content.c_str());
-  UDP.endPacket();
-}
 
 void Get_UDP()
 {
