@@ -97,7 +97,7 @@ String mensaje_html = "";
 WiFiUDP UDP;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
 
-boolean ConnectUDP();
+void ConnectUDP();
 void Get_UDP();
 
 int time1, time2;
@@ -131,7 +131,7 @@ void Mostrar_ip_serie();
 #define TAM_IP 20
 
 // Variables para los argumentos del WebServer y EEPROM
-//unsigned int localPort_str;
+// unsigned int localPort_str;
 int dir_localPort = 100;
 
 char localIP_str[TAM_IP];
@@ -140,7 +140,7 @@ int dir_localIP = 125;
 char remoteIP_str[TAM_IP];
 int dir_remoteIP = 150;
 
-//unsigned int remotePort_str;
+// unsigned int remotePort_str;
 int dir_remotePort = 175;
 
 // Variables utilizadas para las funciones
@@ -670,11 +670,13 @@ void Pantalla_error_conexion()
 
 //----------------- FUNCIONES PARA UDP
 
-boolean ConnectUDP()
+void ConnectUDP()
 {
+  Serial.print("\nStarting UDP");
 
-  Serial.println();
-  Serial.println("Starting UDP");
+  Serial.print("\n LOCAL IP: ");
+  Serial.print(IP_local);
+  Serial.print("\n LOCAL PORT: " + String(PORT_local));
 
   // in UDP error, block execution
   if (UDP.begin(PORT_local) != 1)
@@ -686,20 +688,17 @@ boolean ConnectUDP()
     }
   }
 
-  Serial.println("UDP successful");
-  return false;
+  Serial.println("\nUDP successful");
 }
-
 
 void Get_UDP()
 {
   int packetSize = UDP.parsePacket();
 
   // Antes usaba este if pero genera errores al enviar datos por WebServer (pagina):
-  // if (packetSize){
+   if (packetSize){
 
-  if (UDP.available() > 0)
-  {
+  //if (UDP.available() > 0){
     Serial.print("\nRecibi datos por UDP...");
     // read the packet into packetBufffer
     UDP.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
@@ -1023,8 +1022,8 @@ void Verificar_conexion()
     else
       status_string = String(Status);
     Serial.println(status_string);
-    Serial.println(ssid);
-    Serial.println(pass);
+    //Serial.println(ssid);
+    //Serial.println(pass);
 
     if (Status == WL_CONNECTED)
     {
@@ -1104,10 +1103,20 @@ void Guardar_ip_local()
   IP_local.fromString(localIP_str);
 
   Mostrar_ip_serie();
-  //--------------------
+
   mensaje_html = "\n Configuración guardada!";
   Pagina_ipconfig();
   mensaje_html = "";
+
+  //---------------- RESETEO DE LA PLACA:
+  /*
+  Serial.print("\nConfigurando nueva IP...");
+  if (WiFi.config(IP_local, gateway, subnet) == false)
+    Serial.println("Configuration failed.");
+  Conectar_wifi();
+  ConnectUDP();
+  */
+  //-------------------------------------
 }
 
 void Guardar_ip_remota()
@@ -1122,14 +1131,13 @@ void Guardar_ip_remota()
   {
     remoteIP_str[i] = remoteIP_aux[i]; // Copiamos el string a la cadena
   }
-  
+
   PORT_remote = remotePort_aux.toInt();
 
   EEPROM.put(dir_remoteIP, remoteIP_str);
   EEPROM.commit();
   EEPROM.put(dir_remotePort, PORT_remote);
   EEPROM.commit();
-
 
   Serial.print("\n -----------------------------------");
   Serial.print("\n Guardando IP remota...");
@@ -1177,6 +1185,6 @@ void Mostrar_ip_serie()
   Serial.print("\n REMOTE IP: ");
   Serial.print(IP_remote);
   Serial.print("\n REMOTE PORT: " + String(PORT_remote));
-  Serial.print("\nWiFi status: " + String(WiFi.status()));
+  Serial.print("\n WiFi status: " + String(WiFi.status()));
   Serial.print("\n--------------------------------");
 }
