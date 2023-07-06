@@ -1,6 +1,10 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
+//----------------------------------------
+//---------------------- VERSION FINAL 6-7
+//----------------------------------------
+
 const char *pagina_IP_html PROGMEM = "<!DOCTYPE html>"
                                      "<html>"
                                      "<head>"
@@ -209,7 +213,7 @@ void setup()
   //---> Iniciamos SERIE:
   Serial.begin(9600);
   Serial.print("\n Iniciando...");
-  
+
   EEPROM.begin(512);
   Leer_IP_EEPROM();
 
