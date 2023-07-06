@@ -184,6 +184,10 @@ void setup()
   if (WiFi.config(IP_local, gateway, subnet) == false)
     Serial.println("Configuration failed.");
 
+  WiFi.setAutoConnect(true);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+
   //---> Configuracion de WIFI
   Conectar_wifi(); // La funcion EEPROM esta dentro de Conectar_wifi
   Configurar_servidor();
@@ -201,10 +205,7 @@ void setup()
   flag_permitir = 1;
   time_wifi_1 = millis();
   reconexiones = 0;
-
-  WiFi.setAutoConnect(true);
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
+  
 }
 
 //----------------------------- LOOP
@@ -455,7 +456,8 @@ void Conectar_wifi()
     }
   */
 
-  WiFi.mode(WIFI_AP_STA);
+  //WiFi.mode(WIFI_AP_STA);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
 
   int tiempo_max = 5000;
@@ -473,7 +475,7 @@ void Conectar_wifi()
     Serial.print("\n Fallo la conexion a la red: " + String(ssid));
     Estado_red = "desconectado";
     // Iniciamos el AP:
-    // WiFi.mode(WIFI_AP);
+    WiFi.mode(WIFI_AP);
     WiFi.softAP("Sensor_" + String(SensorID), passConf);
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("\n\n Conectarse a la red: Sensor_" + String(SensorID));
@@ -485,14 +487,14 @@ void Conectar_wifi()
   }
   else
   { // Se realizo la conexion correctamente
-    WiFi.mode(WIFI_STA);
+    //WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, pass);
     Serial.print("\n Se conecto a la red: " + String(ssid) + " correctamente!");
     Serial.print("\n Con la IP: ");
     Serial.print(WiFi.localIP());
     Serial.print("\n-----------------------------\n");
     Estado_red = "conectado";
-    WiFi.softAPdisconnect(); // Apago el AP
+    //WiFi.softAPdisconnect(); // Apago el AP
     Pantalla_conectado();
   }
 }
@@ -693,12 +695,12 @@ void ConnectUDP()
 
 void Get_UDP()
 {
-  int packetSize = UDP.parsePacket();
 
   // Antes usaba este if pero genera errores al enviar datos por WebServer (pagina):
-   if (packetSize){
+  //if (packetSize){
 
-  //if (UDP.available() > 0){
+  if (UDP.available() > 0){
+    int packetSize = UDP.parsePacket();
     Serial.print("\nRecibi datos por UDP...");
     // read the packet into packetBufffer
     UDP.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
