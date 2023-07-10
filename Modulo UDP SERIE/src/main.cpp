@@ -1,9 +1,7 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
-//----------------------------------------
-//---------------------- VERSION FINAL 6-7
-//----------------------------------------
+String version_str = "1.0";
 
 const char *pagina_IP_html PROGMEM = "<!DOCTYPE html>"
                                      "<html>"
@@ -183,6 +181,7 @@ void Pagina_ipconfig();
 void Guardar_ip_remota();
 void Leer_IP_EEPROM();
 void Mostrar_ip_serie();
+void Reset_node();
 #define TAM_IP 20
 
 // Variables para los argumentos del WebServer y EEPROM
@@ -223,8 +222,6 @@ void setup()
   //---> Configuro los botones:
   pinMode(Button_1, INPUT_PULLUP);
   pinMode(Button_2, INPUT_PULLUP);
-
-  
 
   Parpadeo(40, 10);
 
@@ -313,6 +310,7 @@ void Configurar_servidor()
   Servidor.on("/ipconfig", Pagina_ipconfig);
   Servidor.on("/guardar_ip_local", Guardar_ip_local);
   Servidor.on("/guardar_ip_remota", Guardar_ip_remota);
+  Servidor.on("/reset", Reset_node);
   //---
   Servidor.begin();
   Serial.println("\n Servidor iniciado");
@@ -401,22 +399,22 @@ void Pagina_raiz()
   Pagina_html = "<!DOCTYPE html>"
                 "<html>"
                 "<head>"
-                "<title>Configuración WiFi</title>"
+                "<title>Dispositivo</title>"
                 "<meta charset='UTF-8'>"
                 "</head>"
                 "<body>"
-                "<h1> - - - Configuración del dispositivo - - - </h1> <br>"
-                "<p> Estado: ";
-  Pagina_html += Estado_red + "</p> <br>";
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    Pagina_html += "<p>SSID: " + String(ssid) + "</p>";
-    Pagina_html += "<p>IP asignada por la red: " + WiFi.localIP().toString() + "</p>";
-  }
-  else
-  {
-    Pagina_html += "<p> Falló la conexion a la red: " + String(ssid) + "</p>";
-  }
+                "<h1> - - - Configuración del dispositivo - - - </h1> <br>";
+
+  /*
+    Pagina_html += "<p>Versión: \"" + version_str + "\"</p>";
+
+    Pagina_html += "<p>Red: \"" + String(ssid) + "\", estado: " + Estado_red + "</p>";
+    Pagina_html += "<a href='/'><button class='boton'>Actualizar estado</button></a><br>";
+
+    Pagina_html += "<br><br><p> IP local: " + IP_local.toString() + ", puerto local: " + String(PORT_local) + "</p>";
+    Pagina_html += "<p> IP remota: " + IP_remote.toString() + ", puerto remoto: " + String(PORT_remote) + "</p>";
+  */
+
   // BOTON CONFIGURAR WIFI:
   Pagina_html += "<br><br><br><br><a href='/wifi'><button class='boton'>Configurar WiFi</button></a>";
   // BOTON CONFIGURAR IP:
@@ -594,8 +592,8 @@ void Pantalla_conectado()
   display.setTextSize(1);
 
   display.setCursor(0, 0);
-  display.print("ID: ");
-  display.println(SensorID);
+  display.print("Version: ");
+  display.println(version_str);
 
   display.setCursor(0, 30);
   display.print("IP: ");
@@ -1043,10 +1041,12 @@ void Verificar_conexion()
     {
       Pantalla_conectado();
       Send_UDP(IP_remote, PORT_remote, "< Conectado >");
+      Estado_red = "conectado";
     }
     else
     {
       Pantalla_desconectado(status_string);
+      Estado_red = "desconectado";
     }
   }
 }
@@ -1058,9 +1058,11 @@ void Verificar_conexion()
 void Pagina_ipconfig()
 {
   Serial.print("\n Enviando Pagina_ipcongif");
-  String boton_back = "<br><a href='/'>[Back]</a><br>";
+  String boton_back = "<br><a href='/'><button class='boton'>Back</button></a><br><br>";
 
-  Servidor.send(200, "text/html", pagina_IP_html + mensaje_html + boton_back + Pagina_html_fin);
+  String Boton_reset = "<br><br><a href='/reset'><button class='boton'>Reset</button></a><br>";
+
+  Servidor.send(200, "text/html", pagina_IP_html + mensaje_html +  Boton_reset + boton_back + Pagina_html_fin);
 }
 
 void Guardar_ip_local()
@@ -1156,4 +1158,22 @@ void Leer_IP_EEPROM()
   IP_remote.fromString(remoteIP_str);
 
   Mostrar_ip_serie();
+}
+
+void Reset_node()
+{
+  Serial.print("\n Se reseteara la placa...");
+
+  Pagina_html = "<!DOCTYPE html>"
+                "<html>"
+                "<head>"
+                "<title>Dispositivo</title>"
+                "<meta charset='UTF-8'>"
+                "</head>"
+                "<body>"
+                "<p> Reseteando modulo... </p>";
+
+  Servidor.send(200, "text/html", Pagina_html + Pagina_html_fin);
+  delay(200);
+  ESP.reset();
 }
