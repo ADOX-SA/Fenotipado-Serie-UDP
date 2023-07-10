@@ -405,20 +405,23 @@ void Pagina_raiz()
                 "<body>"
                 "<h1> - - - Configuración del dispositivo - - - </h1> <br>";
 
-  /*
+  
     Pagina_html += "<p>Versión: \"" + version_str + "\"</p>";
 
     Pagina_html += "<p>Red: \"" + String(ssid) + "\", estado: " + Estado_red + "</p>";
     Pagina_html += "<a href='/'><button class='boton'>Actualizar estado</button></a><br>";
 
-    Pagina_html += "<br><br><p> IP local: " + IP_local.toString() + ", puerto local: " + String(PORT_local) + "</p>";
-    Pagina_html += "<p> IP remota: " + IP_remote.toString() + ", puerto remoto: " + String(PORT_remote) + "</p>";
-  */
+  //Notar que si no porn
+    Pagina_html += "<br><br><p> IP local: " + (String)IP_local.toString() + ", puerto local: " + String(PORT_local) + "</p>";
+    Pagina_html += "<p> IP remota: " + (String)IP_remote.toString() + ", puerto remoto: " + String(PORT_remote) + "</p>";
+    
 
   // BOTON CONFIGURAR WIFI:
   Pagina_html += "<br><br><br><br><a href='/wifi'><button class='boton'>Configurar WiFi</button></a>";
   // BOTON CONFIGURAR IP:
-  Pagina_html += "<br><br><a href='/ipconfig'><button class='boton'>Configurar IP</button></a><br>";
+  Pagina_html += "<br><br><a href='/ipconfig'><button class='boton'>Configurar IP</button></a>";
+  // BOTON RESET:
+  Pagina_html += "<br><br><a href='/reset'><button class='boton'>Reset</button></a>";
 
   Servidor.send(200, "text/html", Pagina_html + Pagina_html_fin);
 }
