@@ -1062,7 +1062,9 @@ void Pagina_ipconfig()
 
   String Boton_reset = "<br><br><a href='/reset'><button class='boton'>Reset</button></a><br>";
 
-  Servidor.send(200, "text/html", pagina_IP_html + mensaje_html +  Boton_reset + boton_back + Pagina_html_fin);
+  String Boton_back_and_reset="<br><br><a href='/'><button class='boton'>Back</button> <a href='/reset'><button class='boton'>Reset</button></a> </a>";
+
+  Servidor.send(200, "text/html", pagina_IP_html + mensaje_html +  Boton_back_and_reset + Pagina_html_fin);
 }
 
 void Guardar_ip_local()
