@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
-String version_str = "1.0";
+String version_str = "TCP 1.1";
 
 const char *pagina_IP_html PROGMEM = "<!DOCTYPE html>"
                                      "<html>"
@@ -136,17 +136,6 @@ String Pagina_html_fin = "</body>"
                          "</html>";
 String mensaje_html = "";
 
-#include <WiFiUDP.h>
-// #include <WiFi.h>
-WiFiUDP UDP;
-
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE]; // buffer to hold incoming packet,
-
-boolean ConnectUDP();
-void SendUDP_ACK();
-void SendUDP_Packet(String);
-void Get_UDP(bool);
-
 int time1, time2;
 int flag_1;
 int flag_udp;
@@ -161,8 +150,6 @@ String status_string = "";
 
 String Lectura_Serie = "";
 String Lectura_Servidor = "";
-
-void Send_UDP(IPAddress, unsigned int, String);
 
 void Parpadeo(int, int);
 void Pant_Llego_Serv(String);
@@ -206,9 +193,16 @@ unsigned int PORT_remote;
 IPAddress gateway(192, 168, 0, 4);
 IPAddress subnet(255, 255, 255, 0);
 
+WiFiClient client_tcp;
+void Connect_TCP();
+void Get_TCP();
+void Send_TCP(String);
+int time_1, time_2;
+
 //------------------------------------------ SETUP
 void setup()
 {
+
   //---> Iniciamos SERIE:
   Serial.begin(9600);
   Serial.print("\n Iniciando...");
@@ -239,7 +233,8 @@ void setup()
   Conectar_wifi(); // La funcion EEPROM esta dentro de Conectar_wifi
   Configurar_servidor();
 
-  ConnectUDP();
+  //---> Iniciamos TCP
+  Connect_TCP();
 
   // INICIALIZACION DE FLAGS
   flag_1 = 0;
@@ -256,21 +251,25 @@ void setup()
   WiFi.setAutoConnect(true);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
+
+  time_1 = millis();
 }
 
 //----------------------------- LOOP
 void loop()
 {
+
   //------------------------------- VERIFICAR CONEXION:
   Verificar_conexion();
 
-  Servidor.handleClient(); /* Recibe las peticiones */
+  //------------------------------- RECIBE PETICIONES:
+  Servidor.handleClient();
 
   //--------------------------------LEER BOTONES:
   Leer_Pulsadores();
 
   //--------------------------------RECIBO UDP:
-  Get_UDP(true);
+  Get_TCP();
 
   //--------------------------------RECIBO SERIE:
   Leer_Serie_Fenotipado();
@@ -405,17 +404,15 @@ void Pagina_raiz()
                 "<body>"
                 "<h1> - - - Configuración del dispositivo - - - </h1> <br>";
 
-  
-    Pagina_html += "<p>Versión: \"" + version_str + "\"</p>";
+  Pagina_html += "<p>Versión: \"" + version_str + "\"</p>";
 
-    Pagina_html += "<p>Red: \"" + String(ssid) + "\"</p>";
-    //Pagina_html += "<p>Red: \"" + String(ssid) + "\", estado: " + Estado_red + "</p>";
-    //Pagina_html += "<a href='/'><button class='boton'>Actualizar estado</button></a><br>";
+  Pagina_html += "<p>Red: \"" + String(ssid) + "\"</p>";
+  // Pagina_html += "<p>Red: \"" + String(ssid) + "\", estado: " + Estado_red + "</p>";
+  // Pagina_html += "<a href='/'><button class='boton'>Actualizar estado</button></a><br>";
 
-  //Notar que si no pongo el (String), en el  (String)IP_local.toString(), genera errores al guardar ip.
-    Pagina_html += "<br><p> IP local: " + (String)IP_local.toString() + ", puerto local: " + String(PORT_local) + "</p>";
-    Pagina_html += "<p> IP remota: " + (String)IP_remote.toString() + ", puerto remoto: " + String(PORT_remote) + "</p>";
-    
+  // Notar que si no pongo el (String), en el  (String)IP_local.toString(), genera errores al guardar ip.
+  Pagina_html += "<br><p> IP local: " + (String)IP_local.toString() + ", puerto local: " + String(PORT_local) + "</p>";
+  Pagina_html += "<p> IP remota: " + (String)IP_remote.toString() + ", puerto remoto: " + String(PORT_remote) + "</p>";
 
   // BOTON CONFIGURAR WIFI:
   Pagina_html += "<br><br><br><br><a href='/wifi'><button class='boton'>Configurar WiFi</button></a>";
@@ -691,74 +688,6 @@ void Pantalla_error_conexion()
 }
 /* fin de funcion */
 
-//----------------- FUNCIONES PARA UDP
-
-boolean ConnectUDP()
-{
-
-  Serial.println();
-  Serial.println("Starting UDP");
-
-  // in UDP error, block execution
-  if (UDP.begin(PORT_local) != 1)
-  {
-    Serial.println("Connection failed");
-    while (true)
-    {
-      delay(1000);
-    }
-  }
-
-  Serial.println("UDP successful");
-  return false;
-}
-
-void Get_UDP(bool sendACK = true)
-{
-  int packetSize = UDP.parsePacket();
-  // if (packetSize)
-  if (UDP.available() > 0)
-  {
-    // read the packet into packetBufffer
-    UDP.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-
-    Serial.println();
-    Serial.print("[" + String(packetSize) + "]: ");
-    Serial.print(UDP.remoteIP());
-    Serial.print(" : ");
-    Serial.print(UDP.remotePort());
-    Serial.print(" : ");
-    Serial.write((uint8_t *)packetBuffer, (size_t)packetSize);
-
-    Lectura_Servidor = "";
-    for (int h = 0; h < packetSize; h++)
-    {
-      Lectura_Servidor += packetBuffer[h];
-    }
-
-    flag_servidor = 1;
-
-    Serial.print("\nEnviando lo recibido a Fenotipado: " + Lectura_Servidor);
-    Fenotipado.write((uint8_t *)packetBuffer, (size_t)packetSize);
-  }
-}
-
-void Send_UDP(IPAddress ip_f, unsigned int port_f, String str_f)
-{
-
-  // Mostramos en pantalla por serie
-  Serial.print("\nSe enviara: \"" + str_f + "\" a la IP: ");
-  Serial.print(ip_f);
-  Serial.print(" y puerto: " + String(port_f));
-
-  // Enviamos por UDP
-  UDP.beginPacket(ip_f, port_f);
-  UDP.write(str_f.c_str()); //.c_str() para convertic a const char*
-  UDP.endPacket();
-
-  // Parpadeo(50, 2);
-}
-
 void Pant_Llego_Serv(String str)
 {
 
@@ -918,23 +847,7 @@ void Pantallas()
   time2 = millis();
   if (flag_permitir == 1)
   {
-    if (flag_servidor == 1) // SERVIDOR
-    {
-      Pant_Llego_Serv(Lectura_Servidor);
-      flag_servidor = 0;
-      flag_permitir = 0;
-      flag_pant_conect = 1;
-      time_pantalla = 3000;
-    }
-    else if (flag_serie == 1) // SERIE
-    {
-      Pant_Llego_Serie(Lectura_Serie);
-      flag_serie = 0;
-      flag_permitir = 0;
-      flag_pant_conect = 1;
-      time_pantalla = 3000;
-    }
-    else if (flag_boton_1 == 1) // BOTON 1
+    if (flag_boton_1 == 1) // BOTON 1
     {
       Pantalla_Boton(1);
       flag_boton_1 = 0;
@@ -949,6 +862,22 @@ void Pantallas()
       flag_permitir = 0;
       flag_pant_conect = 1;
       time_pantalla = 1000;
+    }
+    else if (flag_servidor == 1) // SERVIDOR
+    {
+      Pant_Llego_Serv(Lectura_Servidor);
+      flag_servidor = 0;
+      flag_permitir = 0;
+      flag_pant_conect = 1;
+      time_pantalla = 3000;
+    }
+    else if (flag_serie == 1) // SERIE
+    {
+      Pant_Llego_Serie(Lectura_Serie);
+      flag_serie = 0;
+      flag_permitir = 0;
+      flag_pant_conect = 1;
+      time_pantalla = 3000;
     }
 
     else if (flag_pant_conect == 1)
@@ -978,10 +907,7 @@ void Leer_Serie_Fenotipado()
 
     flag_serie = 1;
 
-    // IPAddress IPdestino(192, 168, 0, 109);
-    // unsigned int destinationPort = 2000;
-
-    Send_UDP(IP_remote, PORT_remote, Lectura_Serie);
+    Send_TCP(Lectura_Serie);
   }
 }
 
@@ -992,7 +918,7 @@ void Leer_Pulsadores()
   {
 
     String msg = "<BOTON 1>";
-    Send_UDP(IP_remote, PORT_remote, msg);
+    Send_TCP(msg);
 
     flag_boton_1 = 1;
 
@@ -1003,7 +929,7 @@ void Leer_Pulsadores()
   else if (digitalRead(Button_2) == LOW)
   {
     String msg = "<BOTON 2>";
-    Send_UDP(IP_remote, PORT_remote, msg);
+    Send_TCP(msg);
 
     flag_boton_2 = 1;
 
@@ -1044,7 +970,7 @@ void Verificar_conexion()
     if (Status == WL_CONNECTED)
     {
       Pantalla_conectado();
-      Send_UDP(IP_remote, PORT_remote, "< Conectado >");
+      Send_TCP("< Conectado >");
       Estado_red = "conectado";
     }
     else
@@ -1066,9 +992,9 @@ void Pagina_ipconfig()
 
   String Boton_reset = "<br><br><a href='/reset'><button class='boton'>Reset</button></a><br>";
 
-  String Boton_back_and_reset="<br><br><a href='/'><button class='boton'>Back</button> <a href='/reset'><button class='boton'>Reset</button></a> </a>";
+  String Boton_back_and_reset = "<br><br><a href='/'><button class='boton'>Back</button> <a href='/reset'><button class='boton'>Reset</button></a> </a>";
 
-  Servidor.send(200, "text/html", pagina_IP_html + mensaje_html +  Boton_back_and_reset + Pagina_html_fin);
+  Servidor.send(200, "text/html", pagina_IP_html + mensaje_html + Boton_back_and_reset + Pagina_html_fin);
 }
 
 void Guardar_ip_local()
@@ -1182,4 +1108,65 @@ void Reset_node()
   Servidor.send(200, "text/html", Pagina_html + Pagina_html_fin);
   delay(200);
   ESP.reset();
+}
+
+void Connect_TCP()
+{
+  Serial.print("\n Iniciando TCP...");
+
+  if (client_tcp.connect(IP_remote, PORT_remote))
+  {
+    Serial.print("Conectado!");
+  }
+  else
+  {
+    Serial.print("Desconectado!");
+  }
+}
+
+void Get_TCP()
+{
+
+  if (client_tcp.available() > 0)
+  {
+
+    Lectura_Servidor = client_tcp.readStringUntil('\n');
+    int tam = Lectura_Servidor.length();
+
+    Serial.print("\n[" + String(tam) + "]: ");
+    Serial.print(client_tcp.remoteIP());
+    Serial.print(" : ");
+    Serial.print(client_tcp.remotePort());
+    Serial.print(" : ");
+    Serial.print(Lectura_Servidor);
+
+    flag_servidor = 1;
+
+    Serial.print("\nEnviando lo recibido a Fenotipado: " + Lectura_Servidor);
+    Fenotipado.print(Lectura_Servidor);
+  }
+}
+
+void Send_TCP(String str)
+{
+  int flag_local = 0;
+  int cant_max = 5; // Cantidad maxima de intentos de conexion y envio
+
+  Serial.print("\nSend_TCP: " + str);
+
+  while (flag_local < cant_max)
+  {
+    if (client_tcp.connected())
+    {
+      Serial.print(" - OK");
+      client_tcp.print(str);
+      flag_local = cant_max;
+    }
+    else
+    {
+      Serial.print(" - ERROR ");
+      Connect_TCP();
+      flag_local++;
+    }
+  }
 }
