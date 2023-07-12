@@ -408,11 +408,12 @@ void Pagina_raiz()
   
     Pagina_html += "<p>Versión: \"" + version_str + "\"</p>";
 
-    Pagina_html += "<p>Red: \"" + String(ssid) + "\", estado: " + Estado_red + "</p>";
-    Pagina_html += "<a href='/'><button class='boton'>Actualizar estado</button></a><br>";
+    Pagina_html += "<p>Red: \"" + String(ssid) + "\"</p>";
+    //Pagina_html += "<p>Red: \"" + String(ssid) + "\", estado: " + Estado_red + "</p>";
+    //Pagina_html += "<a href='/'><button class='boton'>Actualizar estado</button></a><br>";
 
   //Notar que si no pongo el (String), en el  (String)IP_local.toString(), genera errores al guardar ip.
-    Pagina_html += "<br><br><p> IP local: " + (String)IP_local.toString() + ", puerto local: " + String(PORT_local) + "</p>";
+    Pagina_html += "<br><p> IP local: " + (String)IP_local.toString() + ", puerto local: " + String(PORT_local) + "</p>";
     Pagina_html += "<p> IP remota: " + (String)IP_remote.toString() + ", puerto remoto: " + String(PORT_remote) + "</p>";
     
 
