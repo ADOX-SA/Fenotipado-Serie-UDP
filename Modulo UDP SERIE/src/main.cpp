@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
-String version_str = "TCP 1.1";
+String version_str = "TCP 1.4";
 
 const char *pagina_IP_html PROGMEM = "<!DOCTYPE html>"
                                      "<html>"
@@ -196,13 +196,13 @@ IPAddress subnet(255, 255, 255, 0);
 WiFiClient client_tcp;
 void Connect_TCP();
 void Get_TCP();
-void Send_TCP(String);
+bool Send_TCP(String);
+void Verificar_conexion_TCP();
 int time_1, time_2;
 
 //------------------------------------------ SETUP
 void setup()
 {
-
   //---> Iniciamos SERIE:
   Serial.begin(9600);
   Serial.print("\n Iniciando...");
@@ -258,6 +258,8 @@ void setup()
 //----------------------------- LOOP
 void loop()
 {
+  //------------------------------- VERIFICAR CONEXION TCP:
+  Verificar_conexion_TCP();
 
   //------------------------------- VERIFICAR CONEXION:
   Verificar_conexion();
@@ -596,19 +598,30 @@ void Pantalla_conectado()
   display.print("Version: ");
   display.println(version_str);
 
-  display.setCursor(0, 30);
+  if (client_tcp.connected())
+  {
+    display.setCursor(0, 12);
+    display.print("TCP CONECTADO");
+  }
+  else
+  {
+    display.setCursor(0, 12);
+    display.print("TCP DESCONECTADO");
+  }
+
+  display.setCursor(0, 24);
+  display.println("SSID:");
+  display.setCursor(35, 24);
+  display.println(ssid);
+
+  display.setCursor(0, 36);
   display.print("IP: ");
   display.println(WiFi.localIP().toString());
 
-  display.setCursor(0, 15);
-  display.println("SSID:");
-  display.setCursor(35, 15);
-  display.println(ssid);
-
-  String aux = "Conectado";
+  String aux = "Red conectada";
   int tam = aux.length();
   int indice_x = 64 - (6 * (int(tam / 2)));
-  display.setCursor(indice_x, 50);
+  display.setCursor(indice_x, 48);
   display.print(aux);
 
   display.display();
@@ -918,9 +931,8 @@ void Leer_Pulsadores()
   {
 
     String msg = "<BOTON 1>";
-    Send_TCP(msg);
-
-    flag_boton_1 = 1;
+    if (Send_TCP(msg) == true)
+      flag_boton_1 = 1;
 
     while (digitalRead(Button_1) == LOW)
       delay(1);
@@ -929,9 +941,8 @@ void Leer_Pulsadores()
   else if (digitalRead(Button_2) == LOW)
   {
     String msg = "<BOTON 2>";
-    Send_TCP(msg);
-
-    flag_boton_2 = 1;
+    if (Send_TCP(msg) == true)
+      flag_boton_2 = 1;
 
     while (digitalRead(Button_2) == LOW)
       delay(1);
@@ -970,7 +981,7 @@ void Verificar_conexion()
     if (Status == WL_CONNECTED)
     {
       Pantalla_conectado();
-      Send_TCP("< Conectado >");
+      Send_TCP("< Red conectada >");
       Estado_red = "conectado";
     }
     else
@@ -1067,7 +1078,7 @@ void Mostrar_ip_serie()
   Serial.print("\n REMOTE IP: ");
   Serial.print(IP_remote);
   Serial.print("\n REMOTE PORT: " + String(PORT_remote));
-  Serial.print("\nWiFi status: " + String(WiFi.status()));
+  // Serial.print("\nWiFi status: " + String(WiFi.status()));
   Serial.print("\n--------------------------------");
 }
 
@@ -1117,6 +1128,8 @@ void Connect_TCP()
   if (client_tcp.connect(IP_remote, PORT_remote))
   {
     Serial.print("Conectado!");
+    Send_TCP("< TCP conectado >");
+    Pantalla_conectado();
   }
   else
   {
@@ -1147,10 +1160,11 @@ void Get_TCP()
   }
 }
 
-void Send_TCP(String str)
+bool Send_TCP(String str)
 {
   int flag_local = 0;
-  int cant_max = 5; // Cantidad maxima de intentos de conexion y envio
+  int cant_max = 2; // Cantidad maxima de intentos de conexion y envio
+  bool retorno = false;
 
   Serial.print("\nSend_TCP: " + str);
 
@@ -1161,6 +1175,7 @@ void Send_TCP(String str)
       Serial.print(" - OK");
       client_tcp.print(str);
       flag_local = cant_max;
+      retorno = true;
     }
     else
     {
@@ -1168,5 +1183,32 @@ void Send_TCP(String str)
       Connect_TCP();
       flag_local++;
     }
+  }
+  return retorno;
+}
+
+void Verificar_conexion_TCP()
+{
+  static int flag_tcp = 0;
+  time_2 = millis();
+  if ((time_2 - time_1) > 5000)
+  {
+    if (!(client_tcp.connected()))
+    {
+      Serial.print("\nTCP Desconectado!");
+
+      if (flag_tcp == 0)
+      {
+        Pantalla_conectado();
+        flag_tcp = 1;
+      }
+
+      Connect_TCP();
+    }
+    else
+    {
+      flag_tcp = 0;
+    }
+    time_1 = time_2;
   }
 }
