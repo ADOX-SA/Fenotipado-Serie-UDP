@@ -200,6 +200,9 @@ bool Send_TCP(String);
 void Verificar_conexion_TCP();
 int time_1, time_2;
 
+//------------------------------------------ TCP SERVER:
+WiFiServer server_TCP(PORT_remote);
+
 //------------------------------------------ SETUP
 void setup()
 {
@@ -234,7 +237,7 @@ void setup()
   Configurar_servidor();
 
   //---> Iniciamos TCP
-  Connect_TCP();
+  //Connect_TCP();
 
   // INICIALIZACION DE FLAGS
   flag_1 = 0;
@@ -258,26 +261,49 @@ void setup()
 //----------------------------- LOOP
 void loop()
 {
+
+  WiFiClient client = server_TCP.available();
+
+  
+
+    if(client.connected())
+    {
+      Serial.println("Client Connected");
+    }
+    
+    while(client.connected()){      
+      while(client.available()>0){
+        // read data from the connected client
+        Serial.write(client.read()); 
+      }
+      //Send Data to connected client
+      while(Serial.available()>0)
+      {
+        client.write(Serial.read());
+      }
+    }
+    
   //------------------------------- VERIFICAR CONEXION TCP:
-  Verificar_conexion_TCP();
+  //Verificar_conexion_TCP();
 
   //------------------------------- VERIFICAR CONEXION:
-  Verificar_conexion();
+  //Verificar_conexion();
 
   //------------------------------- RECIBE PETICIONES:
   Servidor.handleClient();
 
   //--------------------------------LEER BOTONES:
-  Leer_Pulsadores();
+  //Leer_Pulsadores();
 
   //--------------------------------RECIBO UDP:
-  Get_TCP();
+  //Get_TCP();
 
   //--------------------------------RECIBO SERIE:
-  Leer_Serie_Fenotipado();
+  //Leer_Serie_Fenotipado();
 
   //---------------------- Mostrar pantallas
-  Pantallas();
+  //Pantallas();
+  
 }
 
 void Leer_EEPROM()
