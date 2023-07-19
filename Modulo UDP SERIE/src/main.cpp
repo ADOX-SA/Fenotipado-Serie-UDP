@@ -1195,9 +1195,11 @@ void Verificar_conexion_TCP()
   time_2 = millis();
   if ((time_2 - time_1) > 5000)
   {
+    Serial.print("\nVerificando TCP: ");
+
     if (!(client_tcp.connected()))
     {
-      Serial.print("\nTCP Desconectado!");
+      Serial.print("desconectado!");
 
       if (flag_tcp == 0)
       {
@@ -1209,6 +1211,7 @@ void Verificar_conexion_TCP()
     }
     else
     {
+      Serial.print("conectado!");
       flag_tcp = 0;
     }
     time_1 = time_2;
