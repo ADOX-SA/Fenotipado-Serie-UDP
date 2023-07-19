@@ -1,7 +1,9 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
-String version_str = "TCP 1.4";
+String version_str = "TCP SERVER";
+
+//----------------  TCP SERVIDOR!
 
 const char *pagina_IP_html PROGMEM = "<!DOCTYPE html>"
                                      "<html>"
@@ -201,7 +203,8 @@ void Verificar_conexion_TCP();
 int time_1, time_2;
 
 //------------------------------------------ TCP SERVER:
-WiFiServer server_TCP(PORT_remote);
+// WiFiServer server_TCP;
+WiFiServer server_TCP(IP_local, PORT_local);
 
 //------------------------------------------ SETUP
 void setup()
@@ -230,14 +233,17 @@ void setup()
 
   //--- Para UDP:
   if (WiFi.config(IP_local, gateway, subnet) == false)
-    Serial.println("Configuration failed.");
+    Serial.println("Fallo configuracion del wifi");
 
   //---> Configuracion de WIFI
   Conectar_wifi(); // La funcion EEPROM esta dentro de Conectar_wifi
   Configurar_servidor();
 
-  //---> Iniciamos TCP
-  //Connect_TCP();
+  //---> Iniciamos TCP SERVER
+  server_TCP.begin(PORT_local);
+
+  Serial.print("\nTCP server status: " + String(server_TCP.status()));
+  Serial.print("\nTCP server port: " + String(server_TCP.port()));
 
   // INICIALIZACION DE FLAGS
   flag_1 = 0;
@@ -261,49 +267,88 @@ void setup()
 //----------------------------- LOOP
 void loop()
 {
+  /*
+  static int flag_tcp = 0;
+  if (server_TCP.available() > 0 && flag_tcp == 0)
+  {
+    client_tcp = server_TCP.available();
+    Serial.print("\nNuevo cliente");
+    Serial.print("\nClient status 1: "+String(client_tcp.status()));
+    flag_tcp = 1;
+  }
+*/
+  WiFiClient client_tcp_2 = server_TCP.available();
+  /*
+    if (server_TCP.available() != 0)
+    {
+      Serial.println("\nEn el if");
 
-  WiFiClient client = server_TCP.available();
+      //int stop = 0;
+      delay(500);
+    */
+  if (client_tcp_2.connected())
+  {
+    Serial.println("\nClient Connected");
+    Serial.print("\nClient status: " + String(client_tcp_2.status()));
+    Serial.println("\nClient IP: " + String(client_tcp_2.remoteIP().toString()) + " port:" + String(client_tcp_2.remotePort()));
 
-  
+    while (client_tcp_2.connected())
+    {
 
-    if(client.connected())
+      if (client_tcp_2.available() > 0)
+      {
+        Serial.print("\nRECIBI: ");
+        while (client_tcp_2.available() > 0)
+        {
+          Serial.write(client_tcp_2.read());
+        }
+        Serial.print("\nClient status: " + String(client_tcp_2.status()));
+        client_tcp_2.stop();
+      }
+    }
+  }
+
+  /*
+    if (client.connected())
     {
       Serial.println("Client Connected");
-    }
-    
-    while(client.connected()){      
-      while(client.available()>0){
-        // read data from the connected client
-        Serial.write(client.read()); 
-      }
-      //Send Data to connected client
-      while(Serial.available()>0)
+
+      while (client.connected())
       {
-        client.write(Serial.read());
+        while (client.available() > 0)
+        {
+          // read data from the connected client
+          Serial.write(client.read());
+        }
+        // Send Data to connected client
+        while (Serial.available() > 0)
+        {
+          client.write(Serial.read());
+        }
       }
     }
-    
+    */
+
   //------------------------------- VERIFICAR CONEXION TCP:
-  //Verificar_conexion_TCP();
+  // Verificar_conexion_TCP();
 
   //------------------------------- VERIFICAR CONEXION:
-  //Verificar_conexion();
+  // Verificar_conexion();
 
   //------------------------------- RECIBE PETICIONES:
   Servidor.handleClient();
 
   //--------------------------------LEER BOTONES:
-  //Leer_Pulsadores();
+  // Leer_Pulsadores();
 
   //--------------------------------RECIBO UDP:
-  //Get_TCP();
+  // Get_TCP();
 
   //--------------------------------RECIBO SERIE:
-  //Leer_Serie_Fenotipado();
+  // Leer_Serie_Fenotipado();
 
   //---------------------- Mostrar pantallas
-  //Pantallas();
-  
+  // Pantallas();
 }
 
 void Leer_EEPROM()
@@ -340,7 +385,7 @@ void Configurar_servidor()
   Servidor.on("/reset", Reset_node);
   //---
   Servidor.begin();
-  Serial.println("\n Servidor iniciado");
+  // Serial.println("\n Servidor iniciado");
 }
 
 /* Prueba para pasar de char a String */
