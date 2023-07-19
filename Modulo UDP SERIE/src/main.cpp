@@ -242,6 +242,7 @@ void setup()
   //---> Iniciamos TCP SERVER
   server_TCP.begin(PORT_local);
 
+
   Serial.print("\nTCP server status: " + String(server_TCP.status()));
   Serial.print("\nTCP server port: " + String(server_TCP.port()));
 
@@ -267,30 +268,22 @@ void setup()
 //----------------------------- LOOP
 void loop()
 {
-  /*
-  static int flag_tcp = 0;
-  if (server_TCP.available() > 0 && flag_tcp == 0)
-  {
-    client_tcp = server_TCP.available();
-    Serial.print("\nNuevo cliente");
-    Serial.print("\nClient status 1: "+String(client_tcp.status()));
-    flag_tcp = 1;
-  }
-*/
-  WiFiClient client_tcp_2 = server_TCP.available();
-  /*
-    if (server_TCP.available() != 0)
-    {
-      Serial.println("\nEn el if");
 
-      //int stop = 0;
-      delay(500);
-    */
+  WiFiClient client_tcp_2 = server_TCP.available();
+
+
+
+  time_2 = millis();
+  if ((time_2 - time_1) > 5000)
+  {
+    Serial.print("\nDesconectado");
+    time_1 = time_2;
+  }
+
   if (client_tcp_2.connected())
   {
-    Serial.println("\nClient Connected");
-    Serial.print("\nClient status: " + String(client_tcp_2.status()));
-    Serial.println("\nClient IP: " + String(client_tcp_2.remoteIP().toString()) + " port:" + String(client_tcp_2.remotePort()));
+    Serial.print("\nClient Connected, status: " + String(client_tcp_2.status()));
+    Serial.print("\nClient IP: " + String(client_tcp_2.remoteIP().toString()) + " port:" + String(client_tcp_2.remotePort()));
 
     while (client_tcp_2.connected())
     {
@@ -303,31 +296,12 @@ void loop()
           Serial.write(client_tcp_2.read());
         }
         Serial.print("\nClient status: " + String(client_tcp_2.status()));
-        client_tcp_2.stop();
+        client_tcp_2.printf("<OK>");
       }
     }
   }
 
-  /*
-    if (client.connected())
-    {
-      Serial.println("Client Connected");
-
-      while (client.connected())
-      {
-        while (client.available() > 0)
-        {
-          // read data from the connected client
-          Serial.write(client.read());
-        }
-        // Send Data to connected client
-        while (Serial.available() > 0)
-        {
-          client.write(Serial.read());
-        }
-      }
-    }
-    */
+ 
 
   //------------------------------- VERIFICAR CONEXION TCP:
   // Verificar_conexion_TCP();
