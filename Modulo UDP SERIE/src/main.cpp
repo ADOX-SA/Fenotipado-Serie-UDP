@@ -195,16 +195,16 @@ unsigned int PORT_remote;
 IPAddress gateway(192, 168, 0, 4);
 IPAddress subnet(255, 255, 255, 0);
 
+//------------------------------------------ TCP SERVER:
+// WiFiServer server_TCP;
+WiFiServer server_TCP(IP_local, PORT_local);
 WiFiClient client_tcp;
 void Connect_TCP();
 void Get_TCP();
 bool Send_TCP(String);
 void Verificar_conexion_TCP();
 int time_1, time_2;
-
-//------------------------------------------ TCP SERVER:
-// WiFiServer server_TCP;
-WiFiServer server_TCP(IP_local, PORT_local);
+WiFiClient client_tcp_2;
 
 //------------------------------------------ SETUP
 void setup()
@@ -242,7 +242,6 @@ void setup()
   //---> Iniciamos TCP SERVER
   server_TCP.begin(PORT_local);
 
-
   Serial.print("\nTCP server status: " + String(server_TCP.status()));
   Serial.print("\nTCP server port: " + String(server_TCP.port()));
 
@@ -269,9 +268,20 @@ void setup()
 void loop()
 {
 
-  WiFiClient client_tcp_2 = server_TCP.available();
+  /*
+    if (server_TCP.available() != NULL)
+    {
+      // client_tcp_2.connect(IP_remote, PORT_remote);
+      Serial.print("\nserver_TCP.available()");
+    }
 
-
+    if (server_TCP.available() != 0)
+    {
+      // client_tcp_2.connect(IP_remote, PORT_remote);
+      Serial.print("\nserver_TCP.available 2");
+    }
+  */
+ //static WiFiClient clients[8];
 
   time_2 = millis();
   if ((time_2 - time_1) > 5000)
@@ -280,8 +290,11 @@ void loop()
     time_1 = time_2;
   }
 
+  client_tcp_2 = (WiFiClient)server_TCP.available();
+
   if (client_tcp_2.connected())
   {
+
     Serial.print("\nClient Connected, status: " + String(client_tcp_2.status()));
     Serial.print("\nClient IP: " + String(client_tcp_2.remoteIP().toString()) + " port:" + String(client_tcp_2.remotePort()));
 
@@ -300,8 +313,6 @@ void loop()
       }
     }
   }
-
- 
 
   //------------------------------- VERIFICAR CONEXION TCP:
   // Verificar_conexion_TCP();
