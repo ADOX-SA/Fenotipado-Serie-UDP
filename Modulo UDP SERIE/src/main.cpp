@@ -271,7 +271,7 @@ void loop()
   static WiFiClient clients[8];
   static IPAddress IP_aux;
   int i = 0;
-  static int flag = 0;
+  //static int flag = 0;
 
   time_2 = millis();
   if ((time_2 - time_1) > 5000)
