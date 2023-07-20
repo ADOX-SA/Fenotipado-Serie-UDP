@@ -268,48 +268,59 @@ void setup()
 void loop()
 {
 
-  /*
-    if (server_TCP.available() != NULL)
-    {
-      // client_tcp_2.connect(IP_remote, PORT_remote);
-      Serial.print("\nserver_TCP.available()");
-    }
-
-    if (server_TCP.available() != 0)
-    {
-      // client_tcp_2.connect(IP_remote, PORT_remote);
-      Serial.print("\nserver_TCP.available 2");
-    }
-  */
- //static WiFiClient clients[8];
+  static WiFiClient clients[8];
+  static IPAddress IP_aux;
+  int i = 0;
+  static int flag = 0;
 
   time_2 = millis();
   if ((time_2 - time_1) > 5000)
   {
-    Serial.print("\nDesconectado");
+    Serial.print("\nDesconectado ");
     time_1 = time_2;
+
+    if ((IP_aux.isSet()) == false)
+      Serial.print("IP no asignada");
+    else
+      Serial.print("\nIP de clients[i]: " + String(clients[i].remoteIP().toString()) + " - " + String(IP_aux.toString()));
   }
 
-  client_tcp_2 = (WiFiClient)server_TCP.available();
+  // clients[i] = (WiFiClient)server_TCP.available();
 
-  if (client_tcp_2.connected())
+  WiFiClient client_aux = server_TCP.available();
+
+  if ((client_aux.remoteIP().isSet()) == true)
+  {
+    if ((client_aux.remoteIP() == clients[i].remoteIP()))
+    {
+      Serial.print("\nIP ya registrada...");
+    }
+    else
+    {
+      Serial.print("\nIP NO registrada...");
+      clients[i] = client_aux;
+    }
+  }
+
+  if (clients[i].connected())
   {
 
-    Serial.print("\nClient Connected, status: " + String(client_tcp_2.status()));
-    Serial.print("\nClient IP: " + String(client_tcp_2.remoteIP().toString()) + " port:" + String(client_tcp_2.remotePort()));
+    Serial.print("\n\nClient connected, IP: " + String(clients[i].remoteIP().toString()) + " port:" + String(clients[i].remotePort()));
 
-    while (client_tcp_2.connected())
+    while (clients[i].connected())
     {
 
-      if (client_tcp_2.available() > 0)
+      if (clients[i].available() > 0)
       {
         Serial.print("\nRECIBI: ");
-        while (client_tcp_2.available() > 0)
+        while (clients[i].available() > 0)
         {
-          Serial.write(client_tcp_2.read());
+          Serial.write(clients[i].read());
         }
-        Serial.print("\nClient status: " + String(client_tcp_2.status()));
-        client_tcp_2.printf("<OK>");
+        Serial.print(" - Respondiendo...");
+        clients[i].printf("<OK>");
+        IP_aux = clients[i].remoteIP();
+        clients[i].stop();
       }
     }
   }
