@@ -1,0 +1,6 @@
+El programa para cargar en las nodes que funciona con UDP esta en la carpeta:
+"Modulo UDP SERIE".
+
+La carpeta "Receptor_Serie_Prueba" tiene un programa para cargar en la node que solamente
+envia datos por serie y los muestra en pantalla, sirve como simulador de la placa que tiene
+el carro de fenotipado
